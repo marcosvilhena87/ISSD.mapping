@@ -151,7 +151,7 @@ local defensive_pass_pending=nil
 local defensive_pass_sequence=0
 local defensive_alignment_blocks={}
 local bot_build_logged=false
-local BOT_BUILD_ID="gk-throw-outcome-20261010-v73"
+local BOT_BUILD_ID="five-direction-command-geometry-20261010-v74"
 local defensive_escape_pending=nil
 local defensive_clear_charge=nil
 local clearance_calibration_index=0
@@ -535,6 +535,23 @@ local function observe_five_direction_pass(my_base,outlet,diagnostic)
     end
     report:write(result.kind,true,{my_base=my_base},
         "OBSERVE_FIVE_DIRECTION_PASS",table.concat(pieces,";"))
+    -- The intended target and the commanded ray can disagree substantially.
+    for _,sector in ipairs({"FRONT","LEFT","RIGHT","DIAG_LEFT","DIAG_RIGHT"}) do
+        local candidate=result.sectors[sector]
+        if candidate then
+            report:write("FIVE_DIRECTION_COMMAND_GEOMETRY",true,
+                {my_base=my_base},"OBSERVE_COMMAND_GEOMETRY",
+                "sector="..sector
+                ..";receiver="..tostring(candidate.base)
+                ..";command="..tostring(candidate.command)
+                ..";angular_error="..tostring(candidate.command_angle)
+                ..";lateral_miss="..tostring(candidate.command_miss)
+                ..";command_lane="..tostring(candidate.command_lane)
+                ..";receiver_clearance="..tostring(candidate.receiver_clearance)
+                ..";eligible="..tostring(candidate.executable)
+                ..";selected_by_policy="..tostring(result.actual==candidate.base))
+        end
+    end
     -- Passive comparison between proposed candidate and real pass-policy veto.
     if best and not outlet then
         local diag=diagnostic or {}
