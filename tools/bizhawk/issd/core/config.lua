@@ -269,6 +269,10 @@ M.FIVE_DIRECTION_PASS_OBSERVER = {
     safe_lane=48,
     safe_receiver=70,
     good_progress=130,
+    command_max_miss=24,
+    command_max_angle=22,
+    safe_command_lane=42,
+    safe_command_receiver=55,
 }
 
 M.DEFENSIVE_EXIT = {
