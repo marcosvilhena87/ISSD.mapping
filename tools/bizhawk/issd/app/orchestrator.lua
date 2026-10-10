@@ -17,6 +17,7 @@ local Ball = dofile(DIR .. "../state/ball.lua")
 local AerialContact = dofile(DIR .. "../state/aerial_contact.lua")
 local AerialDefensiveContact = dofile(DIR .. "../state/aerial_defensive_contact.lua")
 local GKReboundRecovery = dofile(DIR .. "../state/gk_rebound_recovery.lua")
+local GKThrowOutcomeTracker = dofile(DIR .. "../state/gk_throw_outcome_tracker.lua")
 local GKReboundRaceTracker = dofile(DIR .. "../state/gk_rebound_race_tracker.lua")
 local BallFlightContext = dofile(DIR .. "../state/ball_flight_context.lua")
 local OwnershipProbe = dofile(DIR .. "../state/ownership_probe.lua")
@@ -75,6 +76,7 @@ local aerial_contact = AerialContact.new(config, mem, players)
 local aerial_contact_unified = AerialContact.new(config, mem, players)
 local aerial_defensive_contact = AerialDefensiveContact.new(config, players)
 local gk_rebound_recovery = GKReboundRecovery.new(config, players)
+local gk_throw_outcome_tracker = GKThrowOutcomeTracker.new(config,players)
 local gk_rebound_race_tracker = GKReboundRaceTracker.new(config,players)
 local flight_context = BallFlightContext.new(config, mem, players)
 local ownership_probe = OwnershipProbe.new(config, mem, players)
@@ -149,7 +151,7 @@ local defensive_pass_pending=nil
 local defensive_pass_sequence=0
 local defensive_alignment_blocks={}
 local bot_build_logged=false
-local BOT_BUILD_ID="five-direction-veto-audit-20261010-v72"
+local BOT_BUILD_ID="gk-throw-outcome-20261010-v73"
 local defensive_escape_pending=nil
 local defensive_clear_charge=nil
 local clearance_calibration_index=0
@@ -662,6 +664,38 @@ local function observe_throw_in_origin(gs,taker_team,taker,owner,fallback,logica
     end
 end
 
+-- Keeper throw observations stay outside step_bot's register-heavy scope.
+local function observe_gk_throw_fire(action,plan)
+    local ev=gk_throw_outcome_tracker.fire(report.frame,action,plan)
+    if ev then
+        report:write(ev.kind,true,
+            {my_base=config.MY_FIRST},"OBSERVE_GK_THROW",
+            "sequence="..ev.sequence..";mode="..tostring(action.mode)
+            ..";direction="..tostring(action.direction)
+            ..";planned_receiver="..tostring(action.receiver or plan.receiver)
+            ..";lane="..tostring(plan.lane_clearance)
+            ..";receiver_clearance="..tostring(plan.receiver_clearance))
+    end
+end
+
+local function observe_gk_throw_outcome(gameplay_value,gs,owner)
+    local ev=gk_throw_outcome_tracker.update(report.frame,
+        gameplay_active.is_active(gameplay_value),gs,owner)
+    if not ev then return end
+    report:write(ev.kind,true,
+        {possession=owner,game_state=gs},"OBSERVE_GK_THROW",
+        "sequence="..ev.sequence
+        ..";mode="..tostring(ev.mode)
+        ..";direction="..tostring(ev.direction)
+        ..";planned_receiver="..tostring(ev.planned_receiver)
+        ..";actual_receiver="..tostring(ev.receiver)
+        ..";age="..tostring(ev.age)
+        ..";release_age="..tostring(ev.release_age)
+        ..";lane="..tostring(ev.lane)
+        ..";receiver_clearance="..tostring(ev.clearance)
+        ..";reason="..tostring(ev.reason))
+end
+
 local function step_bot()
     player_switch.tick()
     active_tackle.tick()
@@ -751,6 +785,7 @@ local function step_bot()
     end
     local possession = ball.possession()
     local gs = game_state.read()
+    observe_gk_throw_outcome(gameplay_value,gs,possession)
     local loss_bx,loss_by=ball.world_xy()
     observe_ground_intercept_outcome(possession,gs,my_base,gameplay_value,loss_bx,loss_by)
     observe_my_possession_loss(possession,gs,my_base,gameplay_value,loss_bx,loss_by)
@@ -2512,6 +2547,7 @@ local function step_bot()
                         end
                         gk_distribution.mark_fired(action,phase)
                         if phase~="HOLD" then
+                            observe_gk_throw_fire(action,plan)
                         report:write("GK_DISTRIBUTION_ATTEMPT",true,
                             {possession=possession,game_state=gs,my_base=my_base},
                             movement.last_command,
