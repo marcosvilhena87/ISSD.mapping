@@ -51,10 +51,37 @@ function M.new(config,players,field_side)
      local score=0.45*math.min(1,lane/c.safe_lane)
        +0.35*math.min(1,receiver/c.safe_receiver)
        +0.20*math.min(1,math.max(0,forward)/c.good_progress)
+     -- Compare actual receiver geometry with executable cardinal/diagonal rays.
+     local candidate_direction
+     local ray_x,ray_y
+     if sector=="FRONT" then
+      candidate_direction=dir==1 and "Right" or "Left";ray_x=dir;ray_y=0
+     elseif sector=="LEFT" or sector=="RIGHT" then
+      candidate_direction=lateral<0 and "Up" or "Down"
+      ray_x=0;ray_y=lateral<0 and -1 or 1
+     else
+      candidate_direction=(dir==1 and "Right" or "Left")
+        .."+"..(lateral<0 and "Up" or "Down")
+      ray_x=dir/math.sqrt(2)
+      ray_y=(lateral<0 and -1 or 1)/math.sqrt(2)
+     end
+     local projection=(tx-x)*ray_x+(ty-y)*ray_y
+     local miss=math.abs((tx-x)*ray_y-(ty-y)*ray_x)
+     local cosang=dist>0 and projection/dist or 0
+     local angular_error=math.deg(math.acos(math.max(-1,math.min(1,cosang))))
+     local commanded_lane=clearance(x,y,x+ray_x*projection,y+ray_y*projection)
+     local executable=projection>0 and miss<=c.command_max_miss
+       and angular_error<=c.command_max_angle
+       and commanded_lane>=c.safe_command_lane
+       and receiver>=c.safe_command_receiver
+     local candidate={base=base,score=score,distance=dist,
+       lane=lane,receiver_clearance=receiver,progress=forward,
+       command=candidate_direction,command_miss=miss,
+       command_angle=angular_error,command_lane=commanded_lane,
+       executable=executable}
      counts[sector]=counts[sector]+1
      if not sectors[sector] or score>sectors[sector].score then
-      sectors[sector]={base=base,score=score,distance=dist,
-       lane=lane,receiver_clearance=receiver,progress=forward}
+      sectors[sector]=candidate
      end
     end
    end
