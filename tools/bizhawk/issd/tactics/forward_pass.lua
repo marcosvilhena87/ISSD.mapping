@@ -59,6 +59,63 @@ function M.new(config,players,field_side,mem)
         end
         return 0,"SIDE"
     end
+    -- Assess what the receiver can do NEXT, after a safe first pass.
+    -- This is a ranking bonus only; it never overrides pass-safety gates.
+    local function continuity_at(carrier,receiver,rx,ry,dir)
+        local cfg=config.DEFENSIVE_PASS_CONTINUITY_SCORE
+        if not cfg or not cfg.enabled then return 0,0,0,"DISABLED" end
+        local nearest=math.huge
+        players.each_cpu(function(cpu)
+            if cpu~=config.CPU_FIRST then
+                local x,y=players.xy(cpu)
+                nearest=math.min(nearest,distance(rx,ry,x,y))
+            end
+        end)
+        local advanced=0
+        local second=0
+        players.each_my(function(base)
+            if base~=receiver and base~=carrier and base~=config.MY_FIRST then
+                local x,y=players.xy(base)
+                local progress=(x-rx)*dir
+                local dx,dy=x-rx,y-ry
+                local d=math.sqrt(dx*dx+dy*dy)
+                if progress>=cfg.min_next_progress
+                    and d>=cfg.min_next_distance
+                    and d<=cfg.max_next_distance then
+                    local clearance=math.huge
+                    local lane=math.huge
+                    players.each_cpu(function(cpu)
+                        if cpu~=config.CPU_FIRST then
+                            local ex,ey=players.xy(cpu)
+                            clearance=math.min(clearance,distance(ex,ey,x,y))
+                            local t=((ex-rx)*dx+(ey-ry)*dy)/(d*d)
+                            if t>=0 and t<=1 then
+                                lane=math.min(lane,distance(ex,ey,rx+t*dx,ry+t*dy))
+                            end
+                        end
+                    end)
+                    -- Candidate for next action, not proof of an executable B ray.
+                    if clearance>=cfg.min_second_clearance
+                        and lane>=cfg.min_second_lane then
+                        second=second+1
+                    end
+                end
+            end
+        end)
+        local ahead_x=rx+dir*cfg.forward_probe
+        local ahead_clearance=math.huge
+        players.each_cpu(function(cpu)
+            if cpu~=config.CPU_FIRST then
+                local x,y=players.xy(cpu)
+                ahead_clearance=math.min(ahead_clearance,distance(ahead_x,ry,x,y))
+            end
+        end)
+        local carry=ahead_clearance>=cfg.min_forward_space and 1 or 0
+        local pressure=nearest<cfg.pressure_radius and cfg.pressure_penalty or 0
+        local bonus=math.min(second,cfg.max_second_options)*cfg.second_option_bonus
+            +carry*cfg.carry_bonus-pressure
+        return bonus,second,carry,nearest
+    end
     function obj.tick()
         if obj.cooldown>0 then obj.cooldown=obj.cooldown-1 end
     end
@@ -418,9 +475,21 @@ function M.new(config,players,field_side,mem)
                         local facing_bonus,facing_class=
                             facing_adjustment(px,py,rx,ry,d)
                         score=score+facing_bonus
+                        local continuity_bonus,continuity_options,
+                            continuity_carry,continuity_pressure=0,0,0,0
+                        if zone==1 then
+                            continuity_bonus,continuity_options,
+                                continuity_carry,continuity_pressure=
+                                continuity_at(carrier,base,rx,ry,dir)
+                            score=score+continuity_bonus
+                        end
                         if not best or score>best.score then
                             best={facing_class=facing_class,
                                 facing_adjustment=facing_bonus,
+                                continuity_bonus=continuity_bonus,
+                                continuity_options=continuity_options,
+                                continuity_carry=continuity_carry,
+                                continuity_pressure=continuity_pressure,
                                 receiver=base,distance=d,forward=forward,
                                 lateral=lateral,receiver_clearance=receiver_clearance,
                                 lane_clearance=corridor,score=score,
@@ -488,8 +557,11 @@ function M.new(config,players,field_side,mem)
                     if receiver_space>=cfg.min_receiver_clearance
                         and corridor>=cfg.min_lane_clearance
                         and margin>=cfg.min_arrival_margin then
+                        local continuity_bonus,continuity_options,
+                            continuity_carry,continuity_pressure=
+                            continuity_at(carrier,base,rx,ry,dir)
                         local score=receiver_space+0.65*corridor
-                            +0.45*margin-back*0.20
+                            +0.45*margin-back*0.20+continuity_bonus
                         if not best or score>best.score then
                             best={carrier=carrier,receiver=base,zone=1,
                                 intent="DEFENSIVE_SUPPORT",button=c.button,
@@ -498,7 +570,11 @@ function M.new(config,players,field_side,mem)
                                 forward=-back,lateral=lateral,
                                 receiver_clearance=receiver_space,
                                 lane_clearance=corridor,score=score,
-                                arrival_margin=margin}
+                                arrival_margin=margin,
+                                continuity_bonus=continuity_bonus,
+                                continuity_options=continuity_options,
+                                continuity_carry=continuity_carry,
+                                continuity_pressure=continuity_pressure}
                         end
                     end
                 end
