@@ -192,6 +192,21 @@ function obj.observe_five_direction_pass(my_base,outlet,diagnostic)
             report:write("PASS_RECEPTION_GEOMETRY_FALSE_NEGATIVE",true,
                 {my_base=my_base},"OBSERVE_PASS_RECEPTION",details)
         end
+        if ev.proposed then
+            local actionable=outlet and outlet.receiver==ev.receiver
+            report:write("RECEPTION_FEASIBILITY_TO_PASS_CANDIDATE",true,
+                {my_base=my_base},"OBSERVE_PASS_CANDIDATE",
+                details
+                ..";command="..tostring(ev.command)
+                ..";command_miss="..tostring(ev.command_miss)
+                ..";command_angle="..tostring(ev.command_angle)
+                ..";command_lane="..tostring(ev.command_lane)
+                ..";receiver_clearance="..tostring(ev.receiver_clearance)
+                ..";blocked_by="..tostring(ev.blockers)
+                ..";planner_selected_receiver="..tostring(outlet and outlet.receiver)
+                ..";same_receiver_as_plan="..tostring(not not actionable)
+                ..";promoted=false;reason=SHADOW_ONLY_UNVERIFIED_COMMAND")
+        end
     end
     for _,ev in ipairs(opportunity_tracker.sample(report.frame,my_base,result,outlet)) do
         report:write(ev.kind,true,{my_base=my_base},"OBSERVE_PASS_WINDOW",
