@@ -721,7 +721,7 @@ local function step_bot()
         local age=report.frame-p.frame
         local reason=nil
         local kind=nil
-        if p.intent=="SHORT_DIAGONAL" then
+        if (p.intent=="SHORT_DIAGONAL" or p.intent=="EIGHT_WAY_DIAGONAL") then
             local bx,by=ball.world_xy()
             local dx,dy=bx-p.ball_x,by-p.ball_y
             local movement_distance=math.sqrt(dx*dx+dy*dy)
@@ -1531,7 +1531,7 @@ local function step_bot()
                         elseif plan.direction=="Down" then along,across=dy,math.abs(dx)
                         elseif plan.direction=="Up" then along,across=-dy,math.abs(dx)
                         else along,across=0,math.huge end
-                        if plan.intent=="SHORT_DIAGONAL" then
+                        if (plan.intent=="SHORT_DIAGONAL" or plan.intent=="EIGHT_WAY_DIAGONAL") then
                             local sx=plan.direction=="Right" and 1 or -1
                             local sy=plan.vertical=="Down" and 1 or -1
                             -- Validate ball position projected on desired
@@ -1563,7 +1563,7 @@ local function step_bot()
                                 ..";dx="..dx..";dy="..dy..";age="..age)
                             return false
                         end
-                        if plan.intent=="SHORT_DIAGONAL" then
+                        if (plan.intent=="SHORT_DIAGONAL" or plan.intent=="EIGHT_WAY_DIAGONAL") then
                             movement.press_diagonal_button(plan.direction,plan.vertical,nil)
                         else
                             movement.press_direction_button(plan.direction,nil)
@@ -1682,7 +1682,7 @@ local function step_bot()
                             ball_x=select(1,ball.world_xy()),
                             ball_y=select(2,ball.world_xy()),
                             previous_gs=gs,max_ball_displacement=0}
-                        report:write(outlet.intent=="SHORT_DIAGONAL"
+                        report:write((outlet.intent=="SHORT_DIAGONAL" or outlet.intent=="EIGHT_WAY_DIAGONAL")
                                 and "DEFENSIVE_DIAGONAL_PASS_SENT"
                                 or "DEFENSIVE_PASS_SENT",true,
                             {possession=possession,game_state=gs,my_base=my_base},
