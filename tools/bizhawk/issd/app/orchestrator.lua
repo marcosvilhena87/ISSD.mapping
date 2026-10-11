@@ -2215,6 +2215,52 @@ local function step_bot()
                                 ..";fallback="..tostring(exit.direction)
                                 ..";threat="..tostring(exit.threat))
                         end
+                        -- Compare plausible A landing ranges before choosing
+                        -- charge duration. Never delay urgent releases.
+                        local risk_cfg=config.DEFENSIVE_CLEAR_LANDING_RISK
+                        local clear_risk=nil
+                        if exit.button=="A" and risk_cfg.enabled
+                            and (exit.direction=="Right" or exit.direction=="Left") then
+                            local px,py=players.xy(my_base)
+                            local sign=exit.direction=="Right" and 1 or -1
+                            local attack=field_side.attack_direction()
+                            local best=nil
+                            for _,option in ipairs(risk_cfg.ranges) do
+                                local target_x=px+sign*option.travel
+                                local mine,cpu=math.huge,math.huge
+                                local receiver=nil
+                                players.each_my(function(base)
+                                    if base~=my_base and base~=config.MY_FIRST then
+                                        local x,y=players.xy(base)
+                                        local d=math.sqrt((x-target_x)^2+(y-py)^2)
+                                        if d<mine then mine=d;receiver=base end
+                                    end
+                                end)
+                                players.each_cpu(function(base)
+                                    local x,y=players.xy(base)
+                                    cpu=math.min(cpu,
+                                        math.sqrt((x-target_x)^2+(y-py)^2))
+                                end)
+                                local margin=cpu-mine
+                                local valid=sign==attack and
+                                    mine<=risk_cfg.max_receiver_distance
+                                    and margin>=risk_cfg.min_margin
+                                local score=margin-mine*risk_cfg.distance_penalty
+                                if valid and (not best or score>best.score) then
+                                    best={frames=option.frames,travel=option.travel,
+                                        margin=margin,receiver=receiver,score=score}
+                                end
+                            end
+                            clear_risk=best
+                            report:write("DEF_CLEAR_LANDING_RISK",true,
+                                {possession=possession,game_state=gs,my_base=my_base},
+                                "OBSERVE_CLEARANCE",
+                                "risk="..(best and "RECEIVER_ADVANTAGE" or "NO_SAFE_LANDING")
+                                ..";frames="..tostring(best and best.frames)
+                                ..";receiver="..tostring(best and best.receiver)
+                                ..";margin="..tostring(best and best.margin)
+                                ..";threat="..tostring(exit.threat))
+                        end
                         local charge_cfg=config.CHARGED_DEFENSIVE_CLEARANCE
                         local charging=exit.button=="A"
                             and (exit.direction=="Left" or exit.direction=="Right")
@@ -2222,7 +2268,15 @@ local function step_bot()
                             local urgent=exit.threat and exit.threat<=charge_cfg.urgent_radius
                             local frames=urgent and charge_cfg.urgent_frames or charge_cfg.normal_frames
                             local variant=urgent and "URGENT_FIXED" or "NORMAL_FIXED"
-                            if not urgent and charge_cfg.calibration_enabled then
+                            if not urgent and risk_cfg.enabled then
+                                -- When no receiver owns a projected landing,
+                                -- use the shortest configured charge, rather
+                                -- than a speculative high-power clearance.
+                                frames=clear_risk and clear_risk.frames
+                                    or risk_cfg.fallback_frames
+                                variant=clear_risk and "RECEIVER_AWARE"
+                                    or "LOW_CONFIDENCE_SHORT"
+                            elseif not urgent and charge_cfg.calibration_enabled then
                                 clearance_calibration_index=clearance_calibration_index+1
                                 local variants=charge_cfg.calibration_frames
                                 local slot=(clearance_calibration_index-1)%#variants+1
