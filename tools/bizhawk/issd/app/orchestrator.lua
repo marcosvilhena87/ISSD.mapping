@@ -193,6 +193,7 @@ local long_pass_ai_lock=nil
 local aerial_contact_previous_height=nil
 local aerial_contact_last_frame=-99999
 local aerial_contact_attempt_lock=nil
+local aerial_receiver_mark_lock=nil
 local natural_reception_pending=nil
 -- Defensive sprint is deliberately separate from attack dash.
 local defensive_dash={remaining=0,cooldown=0,base=nil,start_distance=nil,mode=nil,
@@ -2716,6 +2717,15 @@ local function step_bot()
         end
 
         if players.valid_cpu_base(possession) then
+            if aerial_receiver_mark_lock then
+                report:write("AERIAL_RECEIVER_MARK_RECEIVED",true,
+                    {my_base=my_base,possession=possession,game_state=gs},
+                    "CPU_CARRIER_PRESS_TRANSITION",
+                    "receiver="..aerial_receiver_mark_lock.receiver
+                    ..";actual_carrier="..possession
+                    ..";same_receiver="..tostring(possession==aerial_receiver_mark_lock.receiver))
+                aerial_receiver_mark_lock=nil
+            end
             defense_interception.reset()
             live_attack.reset()
             gk_distribution.reset()
@@ -3411,6 +3421,55 @@ local function step_bot()
             end
         else
             header_last_height=nil
+        end
+
+        -- Persist receiver marking through the falling-ball/contact window.
+        -- This precedes the general A/X aerial decision and ball chase.
+        do
+            local lock=aerial_receiver_mark_lock
+            local cfg=config.AERIAL_RECEIVER_MARKING_LOCK
+            if lock then
+                local age=report.frame-lock.start
+                local height=math.max(0,-mem.s16(config.AERIAL_CONTACT.height_addr))
+                local reason=nil
+                if gs~=0 or possession~=0 then reason="POSSESSION_OR_STOPPAGE"
+                elseif my_base~=lock.defender then reason="DEFENDER_CHANGED"
+                elseif age>cfg.max_frames then reason="TIMEOUT"
+                elseif height<cfg.min_height then reason="GROUND_WINDOW"
+                end
+                if reason then
+                    report:write("AERIAL_RECEIVER_MARK_LOCK_END",true,
+                        {my_base=my_base,possession=possession,game_state=gs},
+                        "OBSERVE_RECEIVER_MARK","reason="..reason
+                        ..";receiver="..lock.receiver..";age="..age)
+                    aerial_receiver_mark_lock=nil
+                elseif players.valid_cpu_base(lock.receiver)
+                    and players.valid_my_base(my_base) then
+                    local rx,ry=players.xy(lock.receiver)
+                    local px,py=players.xy(my_base)
+                    local gx,gy=players.xy(config.MY_FIRST)
+                    local ux,uy=gx-rx,gy-ry
+                    local norm=math.sqrt(ux*ux+uy*uy)
+                    if norm>0 then
+                        local mx=rx+ux/norm*config.AERIAL_RECEIVER_MARKING.goal_side_offset
+                        local my=ry+uy/norm*config.AERIAL_RECEIVER_MARKING.goal_side_offset
+                        local dx,dy=mx-px,my-py
+                        movement.move_toward(dx,dy)
+                        local state=make_state(my_base,dx,dy,
+                            "AERIAL_RECEIVER_MARKING_LOCK",possession,gs)
+                        state.marked_receiver=lock.receiver
+                        state.ball_height=height
+                        if report.frame%cfg.trace_interval==0 then
+                            report:write("AERIAL_RECEIVER_MARK_LOCK_ACTIVE",true,state,
+                                movement.last_command,
+                                "receiver="..lock.receiver..";height="..height
+                                ..";age="..age..";mark_x="..mx..";mark_y="..my)
+                        end
+                        return attach_live_state(state,"RECEIVER_MARKING",
+                            "CPU_UNOWNED_BALL")
+                    end
+                end
+            end
         end
 
         -- Experimental offensive aerial contact. Positioning may be assisted by
@@ -4370,6 +4429,14 @@ local function step_bot()
                         if goal_dist>0 then
                             local mx=receiver_x+gx_delta/goal_dist*mark_cfg.goal_side_offset
                             local my=receiver_y+gy_delta/goal_dist*mark_cfg.goal_side_offset
+                            if config.AERIAL_RECEIVER_MARKING_LOCK.enabled then
+                                aerial_receiver_mark_lock={
+                                    receiver=receiver,defender=my_base,start=report.frame}
+                                report:write("AERIAL_RECEIVER_MARK_LOCK_START",true,
+                                    {my_base=my_base,possession=possession,game_state=gs},
+                                    "OBSERVE_RECEIVER_MARK",
+                                    "receiver="..receiver..";height="..height)
+                            end
                             movement.move_toward(mx-px,my-py)
                             local state=make_state(my_base,mx-px,my-py,
                                 "AERIAL_RECEIVER_MARKING",possession,gs)
