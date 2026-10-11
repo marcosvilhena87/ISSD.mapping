@@ -449,6 +449,16 @@ M.DEFENSIVE_CLEAR_LANDING_RISK = {
     fallback_frames=3,
 }
 
+M.ADAPTIVE_URGENT_CLEAR_CHARGE = {
+    enabled=true,
+    extreme_radius=24,
+    moderate_radius=30,
+    medium_frames=5,
+    urgent_frames=3,
+    safety_release_radius=19,
+    max_closing_per_frame=2,
+}
+
 M.CHARGED_DEFENSIVE_CLEARANCE = {
     urgent_radius=38,
     urgent_frames=3, -- prioritize release before tackle under immediate pressure

@@ -1564,14 +1564,45 @@ local function step_bot()
                             defensive_clear_charge=nil
                             movement.stop()
                         elseif ch.frames<ch.target_frames then
-                            movement.press_direction_button(ch.direction,"A")
-                            ch.frames=ch.frames+1
-                            local state=make_state(my_base,0,0,
-                                "DEF_CLEAR_CHARGING",possession,gs)
-                            state.defensive_clear_charge_frames=ch.frames
-                            state.defensive_clear_target_frames=ch.target_frames
-                            return attach_live_state(state,"DEFENSIVE_TRANSITION","MY_CONTROLLED")
-                        else
+                            -- Recheck opponent proximity while charging. Release
+                            -- the already-held A if the situation deteriorates.
+                            local adaptive=config.ADAPTIVE_URGENT_CLEAR_CHARGE
+                            local stop_early=false
+                            if adaptive and adaptive.enabled
+                                and ch.variant=="URGENT_ADAPTIVE_MEDIUM" then
+                                local px,py=players.xy(ch.carrier)
+                                local nearest=math.huge
+                                players.each_cpu(function(cpu)
+                                    if cpu~=config.CPU_FIRST then
+                                        local ex,ey=players.xy(cpu)
+                                        nearest=math.min(nearest,
+                                            math.sqrt((ex-px)^2+(ey-py)^2))
+                                    end
+                                end)
+                                local closing=(ch.last_pressure or nearest)-nearest
+                                ch.last_pressure=nearest
+                                if nearest<=adaptive.safety_release_radius
+                                    or closing>adaptive.max_closing_per_frame then
+                                    stop_early=true
+                                    ch.target_frames=ch.frames
+                                    report:write("DEF_CLEAR_ADAPTIVE_EARLY_RELEASE",
+                                        true,{possession=possession,game_state=gs,
+                                            my_base=my_base},"OBSERVE_CHARGE",
+                                        "pressure="..nearest..";closing="..closing
+                                        ..";frames="..ch.frames)
+                                end
+                            end
+                            if not stop_early then
+                                movement.press_direction_button(ch.direction,"A")
+                                ch.frames=ch.frames+1
+                                local state=make_state(my_base,0,0,
+                                    "DEF_CLEAR_CHARGING",possession,gs)
+                                state.defensive_clear_charge_frames=ch.frames
+                                state.defensive_clear_target_frames=ch.target_frames
+                                return attach_live_state(state,"DEFENSIVE_TRANSITION","MY_CONTROLLED")
+                            end
+                        end
+                        if ch.frames>=ch.target_frames then
                             movement.press_direction_button(ch.direction,nil)
                             local cbx,cby=ball.world_xy()
                             local sequence,superseded=defensive_clearance_outcome.start(
@@ -2457,6 +2488,16 @@ local function step_bot()
                             local urgent=exit.threat and exit.threat<=charge_cfg.urgent_radius
                             local frames=urgent and charge_cfg.urgent_frames or charge_cfg.normal_frames
                             local variant=urgent and "URGENT_FIXED" or "NORMAL_FIXED"
+                            local adaptive=config.ADAPTIVE_URGENT_CLEAR_CHARGE
+                            if urgent and adaptive and adaptive.enabled then
+                                if exit.threat>=adaptive.moderate_radius then
+                                    frames=adaptive.medium_frames
+                                    variant="URGENT_ADAPTIVE_MEDIUM"
+                                else
+                                    frames=adaptive.urgent_frames
+                                    variant="URGENT_ADAPTIVE_SHORT"
+                                end
+                            end
                             if not urgent and risk_cfg.enabled then
                                 -- When no receiver owns a projected landing,
                                 -- use the shortest configured charge, rather
@@ -2474,7 +2515,7 @@ local function step_bot()
                             end
                             defensive_clear_charge={carrier=my_base,
                                 direction=exit.direction,frames=1,target_frames=frames,
-                                threat=exit.threat,variant=variant}
+                                threat=exit.threat,last_pressure=exit.threat,variant=variant}
                         end
                         movement.press_direction_button(exit.direction,exit.button)
                         if charging then
