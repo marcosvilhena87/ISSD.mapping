@@ -80,6 +80,13 @@ M.VERTICAL_HEADER_REACH_GUARD = {
 
 -- Conservative marking for high opponent deliveries away from goal danger.
 -- Mark the projected CPU receiver rather than chase unreachable overhead ball.
+M.AERIAL_RECEIVER_MARKING_LOCK = {
+    enabled=true,
+    max_frames=110,
+    min_height=8,
+    trace_interval=6,
+}
+
 M.AERIAL_RECEIVER_MARKING = {
     enabled=true,
     min_height=61,
