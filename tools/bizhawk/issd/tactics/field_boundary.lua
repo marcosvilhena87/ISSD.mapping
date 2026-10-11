@@ -3,6 +3,25 @@ local M={}
 function M.new(config,mem)
  local c=config.FIELD_BOUNDARY
  local o={}
+ -- Interception must not inherit dribbling's inward steering.
+ -- Clamp to the real touchline/endline (no safety margin).
+ function o.interception_target(px,py,tx,ty)
+  local length=mem.u16(config.ADDR.field_length)
+  local width=mem.u16(config.ADDR.field_width)
+  local cx=mem.u16(config.ADDR.center_field_x)
+  local cy=mem.u16(config.ADDR.center_field_y)
+  if length<500 or length>4000 or width<200 or width>2000 then
+   return {x=tx,y=ty,valid=false,changed=false,near_corner=false}
+  end
+  local minx,maxx=cx-length/2,cx+length/2
+  local miny,maxy=cy-width/2,cy+width/2
+  local x=math.max(minx,math.min(maxx,tx))
+  local y=math.max(miny,math.min(maxy,ty))
+  local near_corner=math.min(math.abs(px-minx),math.abs(px-maxx))<=90
+    and math.min(math.abs(py-miny),math.abs(py-maxy))<=90
+  return {x=x,y=y,valid=true,changed=x~=tx or y~=ty,
+   near_corner=near_corner,original_x=tx,original_y=ty}
+ end
  function o.correct(px,py,tx,ty)
   local length=mem.u16(config.ADDR.field_length)
   local width=mem.u16(config.ADDR.field_width)
