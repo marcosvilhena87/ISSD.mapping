@@ -485,6 +485,55 @@ function M.new(config,players,field_side,mem)
         return best,best and "SAFE_SUPPORT" or
             (observed>0 and "UNSAFE_SUPPORT" or "NO_ALIGNED_SUPPORT")
     end
+    -- Conservative feet-to-feet goalkeeper recycle. Only a straight
+    -- backward B lane is executable; a diagonal GK pass is not assumed.
+    function obj.gk_backpass_plan(carrier)
+        local cfg=config.GK_BACKPASS_SUPPORT
+        if not cfg or not cfg.enabled or obj.cooldown>0
+            or not players.valid_my_base(carrier)
+            or carrier==config.MY_FIRST then return nil,"DISABLED_OR_COOLDOWN" end
+        local dir=field_side.attack_direction()
+        if dir~=1 and dir~=-1 then return nil,"NO_DIRECTION" end
+        local px,py=players.xy(carrier)
+        if zone_for(px,dir)~=1 then return nil,"NOT_DEFENSIVE_THIRD" end
+        local gx,gy=players.xy(config.MY_FIRST)
+        local back=(px-gx)*dir
+        local offset=math.abs(gy-py)
+        if back<cfg.min_backward or back>cfg.max_backward
+            or offset>cfg.max_axis_offset then
+            return nil,"NO_EXECUTABLE_BACKWARD_LANE"
+        end
+        local receiver_space=math.huge
+        local lane=math.huge
+        local cpu_arrival=math.huge
+        players.each_cpu(function(base)
+            if base~=config.CPU_FIRST then
+                local ex,ey=players.xy(base)
+                receiver_space=math.min(receiver_space,distance(gx,gy,ex,ey))
+                local fraction=(ex-px)/(gx-px)
+                if fraction>=0 and fraction<=1 then
+                    lane=math.min(lane,math.abs(ey-py))
+                end
+                cpu_arrival=math.min(cpu_arrival,distance(gx,py,ex,ey))
+            end
+        end)
+        local margin=cpu_arrival-offset
+        if receiver_space<cfg.min_receiver_clearance
+            or lane<cfg.min_lane_clearance
+            or margin<cfg.min_arrival_margin then
+            return nil,"UNSAFE_GK_BACKPASS"
+        end
+        return {
+            carrier=carrier,receiver=config.MY_FIRST,zone=1,
+            intent="GK_BACKPASS_SUPPORT",button=c.button,
+            direction=dir==1 and "Left" or "Right",
+            distance=distance(px,py,gx,gy),
+            forward=-back,lateral=offset,
+            receiver_clearance=receiver_space,
+            lane_clearance=lane,arrival_margin=margin,
+            score=receiver_space+lane*0.65+margin*0.45-back*0.20
+        },"SAFE_GK_BACKPASS"
+    end
     function obj.fire(plan,movement)
         if not plan or obj.cooldown>0 then return false end
         if plan.intent=="SHORT_DIAGONAL" or plan.intent=="EIGHT_WAY_DIAGONAL" then
