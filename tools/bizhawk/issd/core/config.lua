@@ -342,6 +342,15 @@ M.ATTACK_FINAL_THIRD = {
 
 -- Prefer territorial gain only among passes already accepted by safety gates.
 -- Explicit disable restores original receiver ranking.
+-- In the defensive third, permit a shorter cardinal B outlet only with
+-- EXTRA receiver/lane clearance. Safety thresholds are never relaxed.
+M.EARLY_DEFENSIVE_OUTLET = {
+    enabled=true,
+    min_forward=45,
+    min_receiver_extra=24,
+    min_lane_extra=20,
+}
+
 M.PROGRESSIVE_PASS_PRIORITY = {
     enabled=true,
     min_forward=95,
