@@ -1569,7 +1569,8 @@ local function step_bot()
                             local adaptive=config.ADAPTIVE_URGENT_CLEAR_CHARGE
                             local stop_early=false
                             if adaptive and adaptive.enabled
-                                and ch.variant=="URGENT_ADAPTIVE_MEDIUM" then
+                                and (ch.variant=="URGENT_ADAPTIVE_MEDIUM"
+                                    or ch.variant=="URGENT_RECEIVER_TARGET") then
                                 local px,py=players.xy(ch.carrier)
                                 local nearest=math.huge
                                 players.each_cpu(function(cpu)
@@ -2490,13 +2491,29 @@ local function step_bot()
                             local variant=urgent and "URGENT_FIXED" or "NORMAL_FIXED"
                             local adaptive=config.ADAPTIVE_URGENT_CLEAR_CHARGE
                             if urgent and adaptive and adaptive.enabled then
-                                if exit.threat>=adaptive.moderate_radius then
-                                    frames=adaptive.medium_frames
-                                    variant="URGENT_ADAPTIVE_MEDIUM"
+                                local max_safe_frames=exit.threat>=adaptive.moderate_radius
+                                    and adaptive.medium_frames or adaptive.urgent_frames
+                                -- A predicted friendly landing may choose among
+                                -- feasible charge durations, but never extend
+                                -- beyond the existing pressure safety budget.
+                                if clear_risk and clear_risk.frames<=max_safe_frames then
+                                    frames=clear_risk.frames
+                                    variant="URGENT_RECEIVER_TARGET"
                                 else
-                                    frames=adaptive.urgent_frames
-                                    variant="URGENT_ADAPTIVE_SHORT"
+                                    frames=max_safe_frames
+                                    variant=max_safe_frames==adaptive.medium_frames
+                                        and "URGENT_ADAPTIVE_MEDIUM"
+                                        or "URGENT_ADAPTIVE_SHORT"
                                 end
+                                report:write("DEF_CLEAR_ADAPTIVE_TARGET",true,
+                                    {possession=possession,game_state=gs,my_base=my_base},
+                                    "OBSERVE_CLEARANCE",
+                                    "chosen_frames="..frames
+                                    ..";max_safe_frames="..max_safe_frames
+                                    ..";receiver="..tostring(clear_risk and clear_risk.receiver)
+                                    ..";margin="..tostring(clear_risk and clear_risk.margin)
+                                    ..";risk_frames="..tostring(clear_risk and clear_risk.frames)
+                                    ..";variant="..variant)
                             end
                             if not urgent and risk_cfg.enabled then
                                 -- When no receiver owns a projected landing,
