@@ -4944,6 +4944,7 @@ local function step_bot()
                     -- plausible receiver for a far-away projected target.
                     -- Require trajectory plausibility and a meaningful gap,
                     -- so a merely nearby decoy cannot hijack the marking.
+                    local revalidated_receiver=false
                     local reval=config.AERIAL_RECEIVER_TARGET_REVALIDATION
                     if reval and reval.enabled and receiver
                         and players.valid_my_base(my_base) then
@@ -4978,6 +4979,7 @@ local function step_bot()
                                 ..";new_projected="..alternate_projected)
                             receiver=alternate
                             receiver_distance=alternate_projected
+                            revalidated_receiver=true
                         end
                     end
                     local projected_ball_distance=math.sqrt(
@@ -4986,8 +4988,8 @@ local function step_bot()
                     if receiver then receiver_x,receiver_y=players.xy(receiver) end
                     local defender_receiver_distance=receiver_x and math.sqrt(
                         (receiver_x-px)^2+(receiver_y-py)^2) or math.huge
-                    if receiver and receiver_distance<=math.max(mark_cfg.max_receiver_projection,
-                        config.AERIAL_RECEIVER_TARGET_REVALIDATION.max_projection_gap)
+                    if receiver and receiver_distance<=(revalidated_receiver
+                        and reval.max_projection_gap or mark_cfg.max_receiver_projection)
                         and defender_receiver_distance<=mark_cfg.max_defender_distance
                         and height>mark_cfg.max_unverified_contact_height then
                         local gx,gy=players.xy(config.MY_FIRST)
