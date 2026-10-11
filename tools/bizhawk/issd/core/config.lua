@@ -466,6 +466,19 @@ M.EIGHT_WAY_PASS = {
     cpu_speed=5,
 }
 
+-- Pressured attacking-third circulation, including backward and diagonal B rays.
+M.FINAL_THIRD_PRESSURE_SUPPORT = {
+    enabled=true,
+    pressure_radius=95,
+    min_distance=35,
+    max_distance=210,
+    max_ray_offset=17,
+    min_receiver_clearance=85,
+    min_lane_clearance=70,
+    min_arrival_margin=45,
+    progress_weight=0.10,
+}
+
 M.FORWARD_PASS = {
     button = "B",
     min_forward = 75,

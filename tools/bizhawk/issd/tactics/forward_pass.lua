@@ -556,9 +556,91 @@ function M.new(config,players,field_side,mem)
             score=receiver_space+lane*0.65+margin*0.45-back*0.20
         },"SAFE_GK_BACKPASS"
     end
+    -- Under final-third pressure, search every executable B direction.
+    -- Evaluate the actual commanded ray, never assume an arbitrary target pass.
+    function obj.final_third_support_plan(carrier)
+        local cfg=config.FINAL_THIRD_PRESSURE_SUPPORT
+        if not cfg or not cfg.enabled or obj.cooldown>0
+            or not players.valid_my_base(carrier)
+            or carrier==config.MY_FIRST then return nil,"UNAVAILABLE" end
+        local dir=field_side.attack_direction()
+        if dir~=1 and dir~=-1 then return nil,"NO_DIRECTION" end
+        local px,py=players.xy(carrier)
+        if zone_for(px,dir)~=3 then return nil,"OUTSIDE_FINAL_THIRD" end
+        local pressure=math.huge
+        players.each_cpu(function(base)
+            if base~=config.CPU_FIRST then
+                local ex,ey=players.xy(base)
+                pressure=math.min(pressure,distance(px,py,ex,ey))
+            end
+        end)
+        if pressure>cfg.pressure_radius then return nil,"NOT_PRESSURED" end
+        local dirs={{1,0,"Right",nil},{-1,0,"Left",nil},
+            {0,1,"Down",nil},{0,-1,"Up",nil},
+            {1,1,"Right","Down"},{1,-1,"Right","Up"},
+            {-1,1,"Left","Down"},{-1,-1,"Left","Up"}}
+        local best=nil
+        players.each_my(function(receiver)
+            if receiver~=carrier and receiver~=config.MY_FIRST then
+                local rx,ry=players.xy(receiver)
+                local dst=distance(px,py,rx,ry)
+                if dst>=cfg.min_distance and dst<=cfg.max_distance then
+                    for _,v in ipairs(dirs) do
+                        local norm=math.sqrt(v[1]*v[1]+v[2]*v[2])
+                        local ux,uy=v[1]/norm,v[2]/norm
+                        local projection=(rx-px)*ux+(ry-py)*uy
+                        local offset=math.abs((rx-px)*uy-(ry-py)*ux)
+                        local diagonal=v[4]~=nil
+                        if projection>=cfg.min_distance
+                            and projection<=cfg.max_distance
+                            and offset<=cfg.max_ray_offset
+                            and (not diagonal or config.EIGHT_WAY_PASS.enabled) then
+                            local rc,lane,cpu_arrival=math.huge,math.huge,math.huge
+                            local lx,ly=px+ux*projection,py+uy*projection
+                            players.each_cpu(function(base)
+                                if base~=config.CPU_FIRST then
+                                    local ex,ey=players.xy(base)
+                                    rc=math.min(rc,distance(rx,ry,ex,ey))
+                                    local along=(ex-px)*ux+(ey-py)*uy
+                                    if along>=0 and along<=projection then
+                                        lane=math.min(lane,math.abs((ex-px)*uy-(ey-py)*ux))
+                                    end
+                                    cpu_arrival=math.min(cpu_arrival,distance(lx,ly,ex,ey))
+                                end
+                            end)
+                            local margin=cpu_arrival-offset
+                            if rc>=cfg.min_receiver_clearance
+                                and lane>=cfg.min_lane_clearance
+                                and margin>=cfg.min_arrival_margin then
+                                local forward=(rx-px)*dir
+                                local score=math.min(rc,180)*0.55
+                                    +math.min(lane,180)*0.65
+                                    +margin*0.25
+                                    +forward*cfg.progress_weight
+                                    -offset*1.2
+                                    +select(1,facing_adjustment(px,py,rx,ry,dst))
+                                if not best or score>best.score then
+                                    best={carrier=carrier,receiver=receiver,zone=3,
+                                        intent="FINAL_THIRD_PRESSURE_SUPPORT",
+                                        button=c.button,direction=v[3],
+                                        vertical=v[4],distance=dst,forward=forward,
+                                        lateral=math.abs(ry-py),
+                                        receiver_clearance=rc,lane_clearance=lane,
+                                        arrival_margin=margin,ray_offset=offset,
+                                        pressure=pressure,score=score}
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+        return best,best and "SAFE_SUPPORT" or "NO_SAFE_RAY"
+    end
     function obj.fire(plan,movement)
         if not plan or obj.cooldown>0 then return false end
-        if plan.intent=="SHORT_DIAGONAL" or plan.intent=="EIGHT_WAY_DIAGONAL" then
+        if plan.intent=="SHORT_DIAGONAL" or plan.intent=="EIGHT_WAY_DIAGONAL"
+            or (plan.intent=="FINAL_THIRD_PRESSURE_SUPPORT" and plan.vertical) then
             movement.press_diagonal_button(plan.direction,plan.vertical,plan.button)
         else
             movement.press_direction_button(plan.direction,plan.button)
