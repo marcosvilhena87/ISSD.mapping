@@ -1657,7 +1657,10 @@ local function step_bot()
                         elseif plan.direction=="Down" then along,across=dy,math.abs(dx)
                         elseif plan.direction=="Up" then along,across=-dy,math.abs(dx)
                         else along,across=0,math.huge end
-                        if (plan.intent=="SHORT_DIAGONAL" or plan.intent=="EIGHT_WAY_DIAGONAL"
+                        -- 8WAY intent also covers cardinal rays. Apply
+                        -- diagonal projection only when both axes are explicit.
+                        if plan.vertical and
+                            (plan.intent=="SHORT_DIAGONAL" or plan.intent=="EIGHT_WAY_DIAGONAL"
                             or plan.intent=="DEFENSIVE_SUPPORT_8WAY"
                             or plan.intent=="DEFENSIVE_GK_SUPPORT_8WAY") then
                             local sx=plan.direction=="Right" and 1 or -1
@@ -1692,7 +1695,8 @@ local function step_bot()
                         a.previous_pressure=nearest
                         local recovery_allowed=recovery and recovery.enabled
                             and severe
-                            and (plan.direction=="Left" or plan.direction=="Up")
+                            and (plan.direction=="Left" or plan.direction=="Up"
+                                or plan.direction=="Down")
                             and not plan.vertical
                             and nearest>=recovery.min_emergency_distance
                             and closing<=recovery.max_closing_per_frame
