@@ -276,7 +276,19 @@ end
 
 -- Keep reporting and its expression registers outside the tactical step.
 function obj.observe_clearance_and_long_pass(state)
-        local clearance=defensive_clearance_outcome.update(state,report.frame)
+        local clearance,second_ball=defensive_clearance_outcome.update(state,report.frame)
+        if second_ball then
+            report:write("DEF_CLEAR_SECOND_BALL_WINDOW",true,state,
+                "OBSERVE_SECOND_BALL",
+                "sequence="..second_ball.sequence
+                ..";age="..second_ball.age
+                ..";first="..tostring(second_ball.first)
+                ..";my_distance="..second_ball.my_distance
+                ..";cpu_distance="..second_ball.cpu_distance
+                ..";selected_distance="..second_ball.selected_distance
+                ..";margin="..second_ball.margin
+                ..";height="..second_ball.height)
+        end
         if clearance then
             report:write("DEF_CLEAR_OUTCOME_"..clearance.kind,true,state,
                 "OBSERVE_CLEARANCE",
@@ -291,6 +303,11 @@ function obj.observe_clearance_and_long_pass(state)
                 ..";owner="..tostring(clearance.owner)
                 ..";receiver="..tostring(clearance.receiver)
                 ..";receiver_x="..tostring(clearance.receiver_x)
+                ..";second_ball_seen="..tostring(clearance.second_ball_seen)
+                ..";second_ball_samples="..tostring(clearance.second_ball_samples)
+                ..";last_my_distance="..tostring(clearance.best_my_distance)
+                ..";last_cpu_distance="..tostring(clearance.best_cpu_distance)
+                ..";last_selected_distance="..tostring(clearance.selected_distance)
                 ..";inactive_frames="..tostring(clearance.inactive_frames)
                 ..";game_state="..tostring(clearance.game_state)
                 ..";gameplay_active="..tostring(clearance.gameplay_active))
