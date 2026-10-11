@@ -283,6 +283,13 @@ M.LONG_PASS_POSITION_OBSERVER = {
     max_frames=120, -- passive observational window after charged A release
 }
 
+M.DEFENSIVE_CLEARANCE_EXECUTION_VALIDATION = {
+    enabled=true,
+    confirm_frames=18,
+    min_ball_travel=18,
+    retry_block_frames=75,
+    emergency_threat=25,
+}
 M.CHARGED_DEFENSIVE_CLEARANCE = {
     urgent_radius=38,
     urgent_frames=3, -- prioritize release before tackle under immediate pressure
