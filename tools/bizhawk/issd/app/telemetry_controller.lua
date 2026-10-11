@@ -54,6 +54,25 @@ function obj.observe_pass_window_outcome(state)
     end
 end
 
+function obj.observe_corner_interception(state,ground,base)
+    if not ground or not ground.near_corner then return end
+    report:write("CORNER_INTERCEPTION_OPPORTUNITY",true,state,
+        "OBSERVE_CORNER_INTERCEPTION",
+        "player="..tostring(base)
+        ..";team="..tostring(ground.team)
+        ..";raw_x="..tostring(ground.raw_x)
+        ..";raw_y="..tostring(ground.raw_y)
+        ..";target_x="..tostring(ground.x)
+        ..";target_y="..tostring(ground.y)
+        ..";legacy_x="..tostring(ground.legacy_x)
+        ..";legacy_y="..tostring(ground.legacy_y)
+        ..";legacy_deviation="..tostring(ground.legacy_deviation)
+        ..";interception_deviation="..tostring(ground.interception_deviation)
+        ..";distance="..tostring(ground.distance)
+        ..";lead="..tostring(ground.lead)
+        ..";speed="..tostring(ground.speed))
+end
+
 function obj.observe_field_transitions(state)
         local transition_events=defensive_midfield_transition.update(state,report.frame)
         for _,event in ipairs(transition_events) do
