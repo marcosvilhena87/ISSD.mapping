@@ -3430,9 +3430,31 @@ local function step_bot()
             local field_center=mem.u16(config.ADDR.center_field_x)
             local opp_goal_x=field_center+dir*field_length/2
             local opp_goal_distance=math.sqrt((bx-opp_goal_x)^2+(by-gy)^2)
-            local descending=aerial_contact_previous_height~=nil
-                and h<=aerial_contact_previous_height
+            local observed_descent=aerial_contact_previous_height~=nil
+                and aerial_contact_previous_height-h or nil
+            local descending=observed_descent~=nil and observed_descent>0
             aerial_contact_previous_height=h
+            -- Horizontal proximity alone must not trigger A/X aerial contact.
+            -- Estimate vertical position at the action's contact frame;
+            -- uncertain velocity fails closed, protecting the CPU receiver.
+            local vg=config.VERTICAL_HEADER_REACH_GUARD
+            local predicted_height=observed_descent
+                and h-observed_descent*vg.animation_lead_frames or nil
+            local vertical_reachable=not vg.enabled
+                or (observed_descent and observed_descent>=vg.min_descent
+                    and predicted_height>=vg.min_contact_height
+                    and predicted_height<=vg.max_contact_height)
+            if vg.enabled and h>=cc.min_height and h<=cc.max_height
+                and distance<=cc.contact_distance and not vertical_reachable
+                and report.frame%vg.trace_every_frames==0 then
+                report:write("VERTICAL_HEADER_REACH_REJECTED",true,
+                    {possession=possession,game_state=gs,my_base=my_base},
+                    "OBSERVE_AERIAL_REACH",
+                    "height="..h..";descent="..tostring(observed_descent)
+                    ..";predicted_height="..tostring(predicted_height)
+                    ..";animation_lead="..vg.animation_lead_frames
+                    ..";distance="..distance)
+            end
             local ng=config.AERIAL_NATURAL_RECEPTION_GUARD
             -- Only trust this guard away from our goal; emergency headers above
             -- retain priority. Track a single observed aerial opportunity.
@@ -3491,6 +3513,7 @@ local function step_bot()
                 and own_goal_distance>config.DEFENSIVE_HEADER.goal_radius
                 and h>=cc.min_height and h<=cc.max_height
                 and distance<=cc.contact_distance and descending
+                and vertical_reachable
                 and (not ng.enabled or threat<ng.min_cpu_clearance
                     or opp_goal_distance<=cc.shot_goal_radius)
                 and not aerial_contact_attempt_lock
