@@ -551,6 +551,21 @@ M.CORNER_INTERCEPT_COMMIT = {
     max_height=8, min_cpu_emergency_distance=12,
 }
 
+-- Short controlled-player commitment when a grounded loose ball is actually
+-- reachable ahead of the CPU. Does not infer executable ETA from team-best ETA.
+M.GROUND_RECOVERY_COMMIT = {
+    enabled=true,
+    max_height=8,
+    max_distance=125,
+    min_eta_advantage=6,
+    retain_eta_deficit=2,
+    speed=5,
+    frames=12,
+    max_ball_drift=32,
+    arrive_distance=18,
+    max_target_offset=48,
+}
+
 M.GROUND_BALL_INTERCEPTION = {
     enabled=true,
     max_height=8,
