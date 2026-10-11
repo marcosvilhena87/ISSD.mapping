@@ -1629,19 +1629,9 @@ local function step_bot()
                     -- for a few frames first; this is a proxy, not a verified
                     -- sprite-facing memory address.
                     local function align_defensive_pass(plan)
+                        -- Empirical candidate status changes geometry, not
+                        -- the required facing/orientation safety pipeline.
                         local empirical=config.EMPIRICAL_DEFENSIVE_B_PASS
-                        if empirical and empirical.enabled and
-                            plan.empirical_assisted then
-                            report:write("EMPIRICAL_B_PASS_ATTEMPT",true,
-                                {my_base=my_base,possession=possession,game_state=gs},
-                                "OBSERVE_EMPIRICAL_PASS",
-                                "receiver="..tostring(plan.receiver)
-                                ..";direction="..tostring(plan.direction)
-                                ..";offset="..tostring(plan.ray_offset)
-                                ..";receiver_clearance="..tostring(plan.receiver_clearance)
-                                ..";lane_clearance="..tostring(plan.lane_clearance))
-                            return true
-                        end
                         local cfg=config.DEFENSIVE_PASS_ALIGNMENT
                         local key=my_base..":"..tostring(plan.receiver)..":"..tostring(plan.direction)
                             ..":"..tostring(plan.vertical)
@@ -1705,6 +1695,16 @@ local function step_bot()
                             and along>=across*cfg.dominance_ratio
                         a.confirmed=facing and a.confirmed+1 or 0
                         if a.confirmed>=cfg.confirm_frames then
+                            if empirical and empirical.enabled
+                                and plan.empirical_assisted then
+                                report:write("EMPIRICAL_B_PASS_ORIENTED",true,
+                                    {my_base=my_base,possession=possession,game_state=gs},
+                                    "OBSERVE_EMPIRICAL_PASS",
+                                    "receiver="..tostring(plan.receiver)
+                                    ..";direction="..tostring(plan.direction)
+                                    ..";offset="..tostring(plan.ray_offset)
+                                    ..";age="..age)
+                            end
                             report:write("PASS_ORIENTATION_CONFIRMED",true,
                                 {my_base=my_base,possession=possession,game_state=gs},
                                 "OBSERVE_FACING","direction="..plan.direction
