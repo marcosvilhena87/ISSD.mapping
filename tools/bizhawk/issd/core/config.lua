@@ -459,7 +459,7 @@ M.DEFENSIVE_EXIT = {
     guard_outcome_frames=36,
     guard_min_ball_travel=20,
     max_clear_attempts=3,
-    clear_buttons={"A","X","A"}, -- alternate when a clearance was not accepted
+    clear_buttons={"A","A","A"}, -- X reserved for offensive shots; retries use A
 }
 
 -- Final-third rescue when the carrier reaches the opponent endline.
@@ -597,6 +597,13 @@ M.CLOSE_RANGE_SHOT_ESCAPE = {
     lateral_step=44,
     central_step=55,
     min_lateral_gain=12,
+}
+
+-- Allow X in regular possession only within the opponent-goal radius.
+-- Set at current shot envelope; tighten with calibrated data later.
+M.SHOT_ZONE_GUARD = {
+    enabled=true,
+    max_goal_distance=310,
 }
 
 M.SHOOT = {
