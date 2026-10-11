@@ -25,11 +25,13 @@ function M.new(config, mem)
                mem.s16(base + config.OFFSET.cam_y)
     end
 
+    -- A memory slot identifies the controlled record, not its occupant.
+    -- Names can change with teams or substitutions; never hardcode them.
     function obj.decode_my(base)
-        if base == 0x0D00 then return "Beranco" end
-        if base == 0x0E00 then return "Gomez" end
-        if base == 0x0F00 then return "Allejo" end
-        if base == 0x0500 then return "GK" end
+        if not obj.valid_my_base(base) then
+            return base and string.format("$%04X", base) or "none"
+        end
+        if base == config.MY_FIRST then return "GK $" .. string.format("%04X",base) end
         return string.format("$%04X", base)
     end
 
