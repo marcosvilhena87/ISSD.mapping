@@ -230,6 +230,15 @@ M.DEFENSIVE_CLEARANCE_OUTCOME = {
 
 M.DEFENSIVE_CLEARANCE_SECOND_BALL_RECOVERY = {
     enabled=true,
+    predictive_enabled=true,
+    max_ground_height=8,
+    max_ball_speed=18,
+    lead_frames=5,
+    max_lead_distance=55,
+    assumed_my_speed=5,
+    assumed_cpu_speed=5,
+    min_eta_advantage=4,
+    max_selected_distance=150,
     approach_distance=110,
     min_cpu_margin=18,
     log_interval=12,
