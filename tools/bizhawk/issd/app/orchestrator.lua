@@ -1704,6 +1704,28 @@ local function step_bot()
                             and along<=cfg.max_ball_offset
                             and across<=cfg.max_lateral_offset
                             and along>=across*cfg.dominance_ratio
+                        -- Shadow comparison only: never changes the pass decision.
+                        local shadow=config.PASS_FACING_SHADOW_THRESHOLDS
+                        if shadow and shadow.enabled then
+                            local function shadow_eval(t)
+                                return along>=t.min_forward_offset
+                                    and along<=cfg.max_ball_offset
+                                    and across<=t.max_lateral_offset
+                                    and along>=across*t.dominance_ratio
+                            end
+                            local flexible=shadow_eval(shadow.flexible)
+                            local permissive=shadow_eval(shadow.permissive)
+                            report:write("PASS_FACING_SHADOW_EVAL",true,
+                                {my_base=my_base,possession=possession,game_state=gs},
+                                "OBSERVE_FACING",
+                                "receiver="..tostring(plan.receiver)
+                                ..";direction="..tostring(plan.direction)
+                                ..";along="..along..";across="..across
+                                ..";current="..tostring(facing)
+                                ..";flexible="..tostring(flexible)
+                                ..";permissive="..tostring(permissive)
+                                ..";age="..age..";pressure="..nearest)
+                        end
                         a.confirmed=facing and a.confirmed+1 or 0
                         -- Passive diagnostics: ball-relative geometry is only
                         -- a proxy for facing, not the ROM's facing register.
