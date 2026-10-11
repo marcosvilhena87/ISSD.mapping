@@ -82,6 +82,14 @@ M.AERIAL_CONTACT_OUTCOME_GUARD = {
     max_frames=35,
 }
 
+M.AERIAL_HEADER_CONTEST_VALIDATION = {
+    enabled=true,
+    opponent_radius=50,
+    controlled_contact_radius=35,
+    emergency_goal_radius=65,
+    diagnostic_frames=15,
+}
+
 M.DEFENSIVE_HEADER = {
     goal_radius=330,
     predictive_enabled=true,
