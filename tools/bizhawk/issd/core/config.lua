@@ -642,6 +642,15 @@ M.GROUND_OPPORTUNITY_OBSERVER = {
 }
 
 -- Very short post-pass continuity; emergency clearances remain available.
+M.DEFENSIVE_PASS_CHAIN = {
+    enabled=true,
+    max_frames=150,
+    max_links=3,
+    min_next_pass_delay=2,
+    emergency_threat=28,
+    log_interval=15,
+}
+
 M.DEFENSIVE_PASS_CONTINUITY = {
     enabled=true,
     window_frames=3,
