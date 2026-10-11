@@ -71,8 +71,8 @@ function obj.observe_pass_window_outcome(state)
     end
 end
 
-function obj.observe_corner_close_range(frame,base,bx,by,px,py,command,gs)
-    local ev=close_intercept.observe(frame,base,bx,by,px,py,command)
+function obj.observe_corner_close_range(frame,base,bx,by,px,py,command,gs,owner)
+    local ev=close_intercept.observe(frame,base,bx,by,px,py,command,owner)
     if not ev then return end
     report:write(ev.kind,true,{my_base=base,game_state=gs},
         "OBSERVE_CLOSE_RANGE",
@@ -85,7 +85,9 @@ function obj.observe_corner_close_range(frame,base,bx,by,px,py,command,gs)
         ..";ball_delta="..tostring(ev.ball_delta)
         ..";dx="..tostring(ev.dx)
         ..";dy="..tostring(ev.dy)
-        ..";command="..tostring(ev.command))
+        ..";command="..tostring(ev.command)
+        ..";owner="..tostring(ev.owner)
+        ..";first_owner="..tostring(ev.first_owner))
 end
 
 function obj.observe_corner_interception(state,ground,base)
