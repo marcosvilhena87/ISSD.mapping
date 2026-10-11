@@ -153,7 +153,7 @@ local defensive_pass_pending=nil
 local defensive_pass_sequence=0
 local defensive_alignment_blocks={}
 local bot_build_logged=false
-local BOT_BUILD_ID="telemetry-controller-extraction-20261010-v76"
+local BOT_BUILD_ID="pass-window-persistence-20261010-v77"
 local defensive_escape_pending=nil
 local defensive_clear_charge=nil
 local clearance_calibration_index=0
@@ -456,7 +456,9 @@ local function observe_second_ball_race(possession,gs,my_base,second_ball_lock)
     end
 end
 
-local telemetry_controller = dofile(DIR .. "telemetry_controller.lua").new({
+local pass_window_tracker = dofile(DIR .. "../state/pass_window_tracker.lua").new(config,players)
+local telemetry_controller = dofile(DIR .. "telemetry_controller.lua").new({ 
+    opportunity_tracker=pass_window_tracker,
     report=report,
     config=config,
     gameplay_active=gameplay_active,
@@ -4504,6 +4506,7 @@ while true do
                 ..";source="..tostring(state.team_possession_kind_source))
         end
         team_possession_conflict_active=not not state.team_possession_conflict
+        telemetry_controller.observe_pass_window_outcome(state)
         report:observe(true, state)
         -- Outcome monitoring only after an actual GK button pulse.
         if gk_pending and not state.gk_dist_fired then
