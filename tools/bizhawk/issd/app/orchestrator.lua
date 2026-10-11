@@ -153,7 +153,7 @@ local defensive_pass_pending=nil
 local defensive_pass_sequence=0
 local defensive_alignment_blocks={}
 local bot_build_logged=false
-local BOT_BUILD_ID="corner-interception-boundary-20261010-v81"
+local BOT_BUILD_ID="defensive-pass-preemption-audit-20261010-v82"
 local defensive_escape_pending=nil
 local defensive_clear_charge=nil
 local clearance_calibration_index=0
@@ -1643,6 +1643,9 @@ local function step_bot()
                     end
                     if outlet_ready and forward_pass.fire(outlet,movement) then
                         defensive_exit.on_pass()
+                        telemetry_controller.observe_pass_preemption(
+                            defensive_pass_pending,report.frame,possession,
+                            "NEW_PASS",nil,"PASS_REPLACED",gs)
                         if defensive_pass_pending then
                             report:write("DEFENSIVE_PASS_UNRESOLVED",true,
                                 {possession=possession,game_state=gs,my_base=my_base},
@@ -1714,6 +1717,9 @@ local function step_bot()
                     end
                     if exit_ready and forward_pass.fire(exit,movement) then
                         defensive_exit.on_pass()
+                        telemetry_controller.observe_pass_preemption(
+                            defensive_pass_pending,report.frame,possession,
+                            "NEW_PASS",nil,"PASS_REPLACED",gs)
                         if defensive_pass_pending then
                             report:write("DEFENSIVE_PASS_UNRESOLVED",true,
                                 {possession=possession,game_state=gs,my_base=my_base},
@@ -1781,6 +1787,9 @@ local function step_bot()
                         return attach_live_state(state,"DEFENSIVE_TRANSITION","MY_CONTROLLED")
                     end
                     if exit.mode=="CLEAR" then
+                        telemetry_controller.observe_pass_preemption(
+                            defensive_pass_pending,report.frame,possession,
+                            "PRESSURE_CLEAR",exit.threat,exit.reason,gs)
                         local charge_cfg=config.CHARGED_DEFENSIVE_CLEARANCE
                         local charging=exit.button=="A"
                             and (exit.direction=="Left" or exit.direction=="Right")
