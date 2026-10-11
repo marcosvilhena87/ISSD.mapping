@@ -54,7 +54,31 @@ function M.new(config,players)
       kind="PASS_RECEPTION_CONTESTED"
      end
     end
+    -- Candidate bridge: a plausible interception race alone cannot
+    -- authorize a command. Expose the exact physical blockers so the
+    -- tactical planner can be calibrated without unsafe promotion.
+    local blockers={}
+    local observer_cfg=config.FIVE_DIRECTION_PASS_OBSERVER
+    if candidate.command_miss>observer_cfg.command_max_miss then
+     blockers[#blockers+1]="COMMAND_MISS"
+    end
+    if candidate.command_angle>observer_cfg.command_max_angle then
+     blockers[#blockers+1]="COMMAND_ANGLE"
+    end
+    if candidate.command_lane<observer_cfg.safe_command_lane then
+     blockers[#blockers+1]="COMMAND_LANE"
+    end
+    if candidate.receiver_clearance<observer_cfg.safe_command_receiver then
+     blockers[#blockers+1]="RECEIVER_PRESSURE"
+    end
+    local proposed=kind=="PASS_RECEPTION_FEASIBLE"
+     and not candidate.executable and best~=nil
     events[#events+1]={kind=kind,sector=sector,receiver=candidate.base,
+     command=candidate.command,command_miss=candidate.command_miss,
+     command_angle=candidate.command_angle,command_lane=candidate.command_lane,
+     receiver_clearance=candidate.receiver_clearance,
+     blockers=table.concat(blockers,","),
+     proposed=proposed,
      geometric_eligible=candidate.executable,best=best,
      false_negative=not candidate.executable and kind=="PASS_RECEPTION_FEASIBLE"}
    end
