@@ -352,6 +352,13 @@ M.PRESSURE_AWARE_ORIENTATION_RECOVERY = {
     max_closing_per_frame=1.0,
 }
 
+-- Offline/shadow sensitivity comparison; never drives execution.
+M.PASS_FACING_SHADOW_THRESHOLDS = {
+    enabled=true,
+    flexible={min_forward_offset=1,max_lateral_offset=35,dominance_ratio=0.8},
+    permissive={min_forward_offset=0,max_lateral_offset=45,dominance_ratio=0.5},
+}
+
 M.DEFENSIVE_PASS_ALIGNMENT = {
     confirm_frames=2, -- consecutive observations of ball ahead
     min_forward_offset=3, max_ball_offset=45,
