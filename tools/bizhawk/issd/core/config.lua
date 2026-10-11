@@ -82,6 +82,19 @@ M.AERIAL_CONTACT_OUTCOME_GUARD = {
     max_frames=35,
 }
 
+-- Experimental timing: compare jump lead against observed ball descent.
+-- Change animation_lead_frames between savestate replays to calibrate X.
+M.AERIAL_HEADER_TIMING = {
+    enabled=true,
+    animation_lead_frames=4,
+    tolerance_frames=2,
+    target_height=60,
+    min_descent=1,
+    max_eta_frames=18,
+    native_positioning=true,
+    trace_interval=4,
+}
+
 M.AERIAL_HEADER_CONTEST_VALIDATION = {
     enabled=true,
     opponent_radius=50,
