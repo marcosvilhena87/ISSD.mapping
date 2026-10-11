@@ -3,7 +3,8 @@ local M = {}
 function M.new(config, players, field_side)
     local obj = { lane_direction = nil, lane_lock_frames = 0,
         carrier=nil, anchor_x=nil, anchor_y=nil, lane_frames=0,
-        abort_frames=0, stalled_events=0, progress_event=nil }
+        abort_frames=0, stalled_events=0, progress_event=nil,
+        close_escape=nil,close_escape_cooldown=0 }
 
     local function distance(ax, ay, bx, by)
         local dx, dy = bx - ax, by - ay
@@ -45,6 +46,7 @@ function M.new(config, players, field_side)
         obj.carrier=nil; obj.anchor_x=nil; obj.anchor_y=nil
         obj.lane_frames=0; obj.abort_frames=0; obj.stalled_events=0
         obj.progress_event=nil
+        obj.close_escape=nil;obj.close_escape_cooldown=0
     end
 
     function obj.take_progress_event()
@@ -102,6 +104,76 @@ function M.new(config, players, field_side)
         if my_side == nil or dir == 0 then obj.reset(); return nil end
 
         local gx, gy = players.xy(config.CPU_FIRST)
+        local ec=config.CLOSE_RANGE_SHOT_ESCAPE
+        if obj.carrier~=carrier_base then
+            obj.reset()
+            obj.carrier=carrier_base
+        end
+        if ec.enabled then
+            if obj.close_escape_cooldown>0 then
+                obj.close_escape_cooldown=obj.close_escape_cooldown-1
+            end
+            local blocked=shot_diag and shot_diag.reason=="BLOCKED_LANE"
+            local goal_dist=distance(px,py,gx,gy)
+            if not blocked or goal_dist>ec.max_goal_distance then
+                obj.close_escape=nil
+            elseif obj.close_escape_cooldown==0 then
+                local e=obj.close_escape
+                if not e then
+                    local up=clearance_at(px,py-ec.lateral_step)
+                    local down=clearance_at(px,py+ec.lateral_step)
+                    local first=up>=down and -1 or 1
+                    e={carrier=carrier_base,age=0,first=first,
+                        start_lateral=math.abs(py-gy)}
+                    obj.close_escape=e
+                    obj.progress_event={kind="SHOT_LANE_RECHECK",carrier=carrier_base,
+                        phase="START",goal_distance=goal_dist}
+                end
+                e.age=e.age+1
+                local phase=math.floor((e.age-1)/ec.max_lane_frames)
+                local tx,ty
+                if phase==0 then
+                    tx,ty=px,py+e.first*ec.lateral_step
+                elseif phase==1 then
+                    tx,ty=px,py-e.first*ec.lateral_step
+                else
+                    -- Both lateral options exhausted: move inward and keep
+                    -- the cooldown to avoid endlessly restarting lane loops.
+                    tx=px-field_side.attack_direction()*ec.lateral_step
+                    ty=py+(py>gy and -1 or 1)
+                        *math.min(ec.central_step,math.abs(py-gy))
+                    obj.close_escape=nil
+                    obj.close_escape_cooldown=ec.cooldown_frames
+                    obj.lane_direction=nil
+                    obj.lane_lock_frames=0
+                    obj.progress_event={kind="SHOT_STALL_DETECTED",
+                        carrier=carrier_base,phase="BOTH_LANES_EXHAUSTED",
+                        goal_distance=goal_dist}
+                    return {mode="RECOVER",carrier=carrier_base,
+                        player_x=px,player_y=py,target_x=tx,target_y=ty,
+                        direction=field_side.attack_direction(),my_side=my_side,
+                        goal_target_x=gx,goal_target_y=gy,
+                        goal_distance=goal_dist}
+                end
+                return {mode="LANE",carrier=carrier_base,
+                    player_x=px,player_y=py,target_x=tx,target_y=ty,
+                    direction=field_side.attack_direction(),my_side=my_side,
+                    advance_distance=0,lane_reason="CLOSE_SHOT_ESCAPE",
+                    lane_direction=e.first*(phase==0 and 1 or -1),
+                    goal_target_x=gx,goal_target_y=gy,
+                    goal_distance=goal_dist}
+            elseif obj.close_escape_cooldown>0 then
+                -- No further near-goal zigzag during the cooldown.
+                return {mode="RECOVER",carrier=carrier_base,
+                    player_x=px,player_y=py,
+                    target_x=px-field_side.attack_direction()*ec.lateral_step,
+                    target_y=py+(py>gy and -1 or 1)
+                        *math.min(ec.central_step,math.abs(py-gy)),
+                    direction=field_side.attack_direction(),my_side=my_side,
+                    goal_target_x=gx,goal_target_y=gy,
+                    goal_distance=goal_dist}
+            end
+        end
         -- Near the opponent's end line, repeated forward commands are futile.
         -- When the shot has a poor angle and no safe pass was found upstream,
         -- move inward/backward to reopen a shooting lane instead.
