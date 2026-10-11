@@ -331,6 +331,17 @@ M.ATTACK_FINAL_THIRD = {
     inward_step = 68,
 }
 
+-- Prefer territorial gain only among passes already accepted by safety gates.
+-- Explicit disable restores original receiver ranking.
+M.PROGRESSIVE_PASS_PRIORITY = {
+    enabled=true,
+    min_forward=95,
+    min_receiver_margin=15,
+    min_lane_margin=15,
+    forward_bonus=0.60,
+    max_forward_bonus=130,
+}
+
 M.FORWARD_PASS = {
     button = "B",
     min_forward = 75,
