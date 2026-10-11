@@ -130,6 +130,18 @@ M.CROSS_SECOND_BALL_COVER = {
     trace_interval=12,
 }
 
+M.AERIAL_LOCK_TARGET_REVALIDATION = {
+    enabled=true,
+    min_lock_age=2,
+    retarget_cooldown=12,
+    projection_frames=12,
+    max_projection_gap=150,
+    projection_tolerance=65,
+    near_defender=55,
+    min_distance_gain=65,
+    trace_interval=6,
+}
+
 M.AERIAL_RECEIVER_MARKING_LOCK = {
     enabled=true,
     max_frames=110,

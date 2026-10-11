@@ -3770,6 +3770,62 @@ local function step_bot()
                         ..";age="..age)
                     pre_reception_pressure_lock=nil
                 else
+                    -- Re-evaluate the *locked* receiver: a defender switch
+                    -- can leave us marking a distant CPU while a nearby CPU
+                    -- is about to receive the descending ball.
+                    local rv=config.AERIAL_LOCK_TARGET_REVALIDATION
+                    if rv and rv.enabled and age>=rv.min_lock_age
+                        and report.frame-(lock.last_retarget or lock.start)
+                            >=rv.retarget_cooldown then
+                        local px0,py0=players.xy(my_base)
+                        local ox,oy=players.xy(lock.receiver)
+                        local old_dist=math.sqrt((ox-px0)^2+(oy-py0)^2)
+                        local vx=possession_context.ball_dx or 0
+                        local vy=possession_context.ball_dy or 0
+                        local tx=bx+vx*rv.projection_frames
+                        local ty=by+vy*rv.projection_frames
+                        local old_projected=math.sqrt((ox-tx)^2+(oy-ty)^2)
+                        local nearest=nil
+                        local nearest_dist=math.huge
+                        local nearest_projected=math.huge
+                        players.each_cpu(function(base)
+                            if base~=config.CPU_FIRST and base~=lock.receiver then
+                                local ex,ey=players.xy(base)
+                                local d=math.sqrt((ex-px0)^2+(ey-py0)^2)
+                                local projected=math.sqrt((ex-tx)^2+(ey-ty)^2)
+                                if d<nearest_dist and projected<=rv.max_projection_gap then
+                                    nearest,nearest_dist,nearest_projected=base,d,projected
+                                end
+                            end
+                        end)
+                        local accepted=nearest
+                            and nearest_dist<=rv.near_defender
+                            and old_dist-nearest_dist>=rv.min_distance_gain
+                            and nearest_projected<=old_projected+rv.projection_tolerance
+                        if accepted then
+                            local old=lock.receiver
+                            lock.receiver=nearest
+                            lock.last_retarget=report.frame
+                            report:write("AERIAL_LOCK_TARGET_REVALIDATED",true,
+                                {my_base=my_base,possession=possession,game_state=gs},
+                                "OBSERVE_RECEIVER_MARK",
+                                "old="..old..";new="..nearest
+                                ..";old_distance="..old_dist
+                                ..";new_distance="..nearest_dist
+                                ..";old_projection="..old_projected
+                                ..";new_projection="..nearest_projected)
+                        elseif report.frame%rv.trace_interval==0 then
+                            report:write("AERIAL_LOCK_REVALIDATION_REJECTED",true,
+                                {my_base=my_base,possession=possession,game_state=gs},
+                                "OBSERVE_RECEIVER_MARK",
+                                "receiver="..lock.receiver
+                                ..";candidate="..tostring(nearest)
+                                ..";old_distance="..old_dist
+                                ..";candidate_distance="..nearest_dist
+                                ..";old_projection="..old_projected
+                                ..";candidate_projection="..nearest_projected)
+                        end
+                    end
                     local rx,ry=players.xy(lock.receiver)
                     local px,py=players.xy(my_base)
                     local distance=math.sqrt((rx-px)^2+(ry-py)^2)
