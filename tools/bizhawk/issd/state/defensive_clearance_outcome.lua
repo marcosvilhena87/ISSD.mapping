@@ -12,7 +12,9 @@ function M.new(config,players,field_side)
     dir=dir,sequence=o.sequence,variant=variant,
     inactive_frames=0, first_receiver=nil,
     last_sample_frame=-99999, second_ball_seen=false, second_ball_samples=0,
-    best_my_distance=nil,best_cpu_distance=nil,selected_distance=nil}
+    best_my_distance=nil,best_cpu_distance=nil,selected_distance=nil,
+    max_travel=0,max_forward=0,max_step_speed=0,
+    prev_x=x,prev_y=y,first_release_age=nil,first_owner=nil}
   return o.pending.sequence,superseded
  end
  function o.update(state,frame)
@@ -21,6 +23,16 @@ function M.new(config,players,field_side)
   local age=frame-p.frame
   local dir=field_side.attack_direction()
   local progress=dir*(state.ball_x-p.x)
+  local travel=math.sqrt((state.ball_x-p.x)^2+(state.ball_y-p.y)^2)
+  local step=math.sqrt((state.ball_x-p.prev_x)^2+(state.ball_y-p.prev_y)^2)
+  p.max_travel=math.max(p.max_travel,travel)
+  p.max_forward=math.max(p.max_forward,progress)
+  p.max_step_speed=math.max(p.max_step_speed,step)
+  p.prev_x,p.prev_y=state.ball_x,state.ball_y
+  if age>0 and p.first_release_age==nil and state.possession~=p.carrier then
+   p.first_release_age=age
+   p.first_owner=state.possession
+  end
   local kind,reason=nil,nil
   local second_ball=nil
   local h=state.ball_height
@@ -73,6 +85,9 @@ function M.new(config,players,field_side)
    o.pending=nil
    return {kind=kind,reason=reason,sequence=p.sequence,age=age,
     progress=progress,start_x=p.x,end_x=state.ball_x,
+    max_travel=p.max_travel,max_forward=p.max_forward,
+    max_step_speed=p.max_step_speed,
+    first_release_age=p.first_release_age,first_owner=p.first_owner,
     frames=p.frames,variant=p.variant,owner=state.possession,
     receiver=kind=="RECEIVED" and state.possession or nil,
     receiver_x=kind=="RECEIVED" and players.xy(state.possession) or nil,
