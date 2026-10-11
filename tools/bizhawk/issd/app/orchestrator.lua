@@ -3174,12 +3174,35 @@ local function step_bot()
                 and height<=ac.max_height
                 and goal_dist<=ac.goal_radius
                 and dist<=ac.approach_distance
-            -- Predictive emergency defensive header: account for falling ball
-            -- and defender closure rather than waiting for distance <=38.
+            -- A horizontal overlap does not prove aerial contact. Predict the
+            -- ball's height when the controlled defender reaches contact range.
+            -- A non-descending ball above near-reception height must not pull
+            -- the defender away from the CPU receiver.
             local hc=config.DEFENSIVE_HEADER
             local descent=aerial_predict_last_height and
                 (aerial_predict_last_height-height) or 0
             aerial_predict_last_height=valid and height or nil
+            local approach_frames=math.max(0,
+                (dist-hc.contact_distance)/hc.predictive_assumed_closing_speed)
+            local height_at_arrival=height-math.max(0,descent)*approach_frames
+            local height_reachable=height<=config.AERIAL_NATURAL_RECEPTION_GUARD.max_height
+                or (descent>=timing.min_descent
+                    and approach_frames<=timing.max_eta_frames
+                    and height_at_arrival>=hc.min_height
+                    and height_at_arrival<=hc.max_height)
+            if active and not height_reachable then
+                active=false
+                if report.frame%timing.trace_interval==0 then
+                    report:write("AERIAL_HEIGHT_INTERCEPT_REJECTED",true,
+                        {possession=possession,game_state=gs,my_base=my_base},
+                        "RECEIVER_MARKING_FALLBACK",
+                        "height="..height..";descent="..descent
+                        ..";distance="..dist
+                        ..";approach_eta="..approach_frames
+                        ..";height_at_arrival="..height_at_arrival
+                        ..";reason=NO_REACHABLE_CONTACT_HEIGHT")
+                end
+            end
             local contact_eta=nil
             if descent>=timing.min_descent then
                 contact_eta=math.max(0,
