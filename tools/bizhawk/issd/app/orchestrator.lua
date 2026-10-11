@@ -153,7 +153,7 @@ local defensive_pass_pending=nil
 local defensive_pass_sequence=0
 local defensive_alignment_blocks={}
 local bot_build_logged=false
-local BOT_BUILD_ID="all-bot-close-range-audit-20261010-v87"
+local BOT_BUILD_ID="goal-corridor-early-cover-20261010-v88"
 local defensive_escape_pending=nil
 local defensive_clear_charge=nil
 local clearance_calibration_index=0
@@ -2511,6 +2511,73 @@ local function step_bot()
                 )
             end
 
+            -- v88: protect an exposed carrier-to-goal corridor before global press.
+            -- Before the shot: cover a completely exposed carrier-to-goal
+            -- corridor. Count all outfield defenders, not only the selected one.
+            -- Do not request R: its destination is not deterministic.
+            do
+                local guard=config.PRE_SHOT_DEFENSIVE_COVER
+                local cx,cy=players.xy(possession)
+                local gx,gy=players.xy(config.MY_FIRST)
+                local vx,vy=gx-cx,gy-cy
+                local lane_length=math.sqrt(vx*vx+vy*vy)
+                if guard.enabled and players.valid_my_base(my_base)
+                    and my_base~=config.MY_FIRST and lane_length>=1
+                    and lane_length<=guard.activation_radius then
+                    local covered=0
+                    local nearest=math.huge
+                    local selected_lateral=math.huge
+                    local selected_along=nil
+                    players.each_my(function(base)
+                        if base~=config.MY_FIRST then
+                            local dx,dy=players.xy(base)
+                            local rx,ry=dx-cx,dy-cy
+                            local along=(rx*vx+ry*vy)/lane_length
+                            local lateral=math.abs(rx*vy-ry*vx)/lane_length
+                            local near=math.sqrt(rx*rx+ry*ry)
+                            if near<nearest then nearest=near end
+                            if along>guard.min_along and along<lane_length
+                                and lateral<=guard.lane_width then
+                                covered=covered+1
+                            end
+                            if base==my_base then
+                                selected_lateral=lateral
+                                selected_along=along
+                            end
+                        end
+                    end)
+                    local open=covered==0
+                    if open and lane_length<=guard.emergency_radius then
+                        local px,py=players.xy(my_base)
+                        local offset=math.min(guard.cover_offset,
+                            lane_length*guard.max_fraction)
+                        local tx=cx+vx/lane_length*offset
+                        local ty=cy+vy/lane_length*offset
+                        local dx,dy=tx-px,ty-py
+                        movement.move_toward(dx,dy)
+                        local state=make_state(my_base,dx,dy,
+                            "PRE_SHOT_DEFENSIVE_COVER",possession,gs)
+                        state.live_carrier=possession
+                        state.live_target_x=tx
+                        state.live_target_y=ty
+                        report:write("GOAL_CORRIDOR_EXPOSED",true,state,
+                            movement.last_command,
+                            "carrier="..possession..";cover_count="..covered
+                            ..";nearest_defender="..nearest
+                            ..";selected_lateral="..selected_lateral
+                            ..";selected_along="..tostring(selected_along)
+                            ..";goal_distance="..lane_length)
+                        report:write("GOAL_CORRIDOR_INTERPOSITION",true,state,
+                            movement.last_command,
+                            "carrier="..possession..";defender="..my_base
+                            ..";target_x="..tx..";target_y="..ty
+                            ..";goal_distance="..lane_length)
+                        return attach_live_state(state,"PRE_SHOT_COVER",
+                            "CPU_CONTROLLED")
+                    end
+                end
+            end
+
             -- Outside the danger zone: win the goal side first, then close down.
             -- Keeper position is only a proxy for goal center. No R switches.
             local global_plan=global_goal_side_press.plan(my_base,possession)
@@ -2562,67 +2629,6 @@ local function step_bot()
                     ..";distance="..global_plan.distance)
                 return attach_live_state(state,"GLOBAL_GOAL_SIDE_PRESS",
                     "CPU_CONTROLLED")
-            end
-
-            -- Before the shot: cover a completely exposed carrier-to-goal
-            -- corridor. Count all outfield defenders, not only the selected one.
-            -- Do not request R: its destination is not deterministic.
-            do
-                local guard=config.PRE_SHOT_DEFENSIVE_COVER
-                local cx,cy=players.xy(possession)
-                local gx,gy=players.xy(config.MY_FIRST)
-                local vx,vy=gx-cx,gy-cy
-                local lane_length=math.sqrt(vx*vx+vy*vy)
-                if guard.enabled and players.valid_my_base(my_base)
-                    and my_base~=config.MY_FIRST and lane_length>=1
-                    and lane_length<=guard.activation_radius then
-                    local covered=0
-                    local nearest=math.huge
-                    local selected_lateral=math.huge
-                    local selected_along=nil
-                    players.each_my(function(base)
-                        if base~=config.MY_FIRST then
-                            local dx,dy=players.xy(base)
-                            local rx,ry=dx-cx,dy-cy
-                            local along=(rx*vx+ry*vy)/lane_length
-                            local lateral=math.abs(rx*vy-ry*vx)/lane_length
-                            local near=math.sqrt(rx*rx+ry*ry)
-                            if near<nearest then nearest=near end
-                            if along>guard.min_along and along<lane_length
-                                and lateral<=guard.lane_width then
-                                covered=covered+1
-                            end
-                            if base==my_base then
-                                selected_lateral=lateral
-                                selected_along=along
-                            end
-                        end
-                    end)
-                    local open=covered==0
-                    if open and lane_length<=guard.emergency_radius then
-                        local px,py=players.xy(my_base)
-                        local offset=math.min(guard.cover_offset,
-                            lane_length*guard.max_fraction)
-                        local tx=cx+vx/lane_length*offset
-                        local ty=cy+vy/lane_length*offset
-                        local dx,dy=tx-px,ty-py
-                        movement.move_toward(dx,dy)
-                        local state=make_state(my_base,dx,dy,
-                            "PRE_SHOT_DEFENSIVE_COVER",possession,gs)
-                        state.live_carrier=possession
-                        state.live_target_x=tx
-                        state.live_target_y=ty
-                        report:write("PRE_SHOT_COVER_UNCOVERED",true,state,
-                            movement.last_command,
-                            "carrier="..possession..";cover_count="..covered
-                            ..";nearest_defender="..nearest
-                            ..";selected_lateral="..selected_lateral
-                            ..";selected_along="..tostring(selected_along)
-                            ..";goal_distance="..lane_length)
-                        return attach_live_state(state,"PRE_SHOT_COVER",
-                            "CPU_CONTROLLED")
-                    end
-                end
             end
 
             -- A free CPU carrier near our goal outranks marking a secondary
