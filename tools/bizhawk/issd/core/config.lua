@@ -467,6 +467,16 @@ M.DEFENSIVE_CORRIDOR_ESCAPE = {
     change_bonus=24,
 }
 
+-- Experiment based on manually received Up+B / Left+B passes.
+-- Guarded by real receiver-segment and CPU clearance checks.
+M.EMPIRICAL_DEFENSIVE_B_PASS = {
+    enabled=true,
+    max_cardinal_offset=110,
+    min_receiver_clearance=140,
+    min_lane_clearance=95,
+    min_arrival_margin=85,
+}
+
 M.DEFENSIVE_ALL_DIRECTION_SUPPORT = {
     enabled=true,
     min_distance=40,
