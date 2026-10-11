@@ -348,6 +348,25 @@ M.GK_BACKPASS_SUPPORT = {
     min_arrival_margin=65,
 }
 
+-- Evaluate 8 executable B rays in the defensive third, including GK.
+-- Conservative ball-ray alignment and strict keeper safety thresholds.
+M.DEFENSIVE_ALL_DIRECTION_SUPPORT = {
+    enabled=true,
+    min_distance=40,
+    max_distance=230,
+    max_ray_offset=17,
+    min_receiver_clearance=85,
+    min_lane_clearance=65,
+    min_arrival_margin=45,
+    progress_weight=0.30,
+    gk_max_distance=190,
+    gk_max_ray_offset=10,
+    gk_min_receiver_clearance=140,
+    gk_min_lane_clearance=105,
+    gk_min_arrival_margin=100,
+    gk_risk_penalty=55,
+}
+
 M.DEFENSIVE_SUPPORT_PASS = {
     enabled=true,
     max_backward=60,

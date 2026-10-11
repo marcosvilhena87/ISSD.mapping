@@ -713,10 +713,104 @@ function M.new(config,players,field_side,mem)
         end)
         return best,best and "SAFE_SUPPORT" or "NO_SAFE_RAY"
     end
+    -- Intermediate defensive outlets in all eight executable B rays.
+    -- The goalkeeper is evaluated as a feet-to-feet receiver only.
+    function obj.defensive_all_direction_plan(carrier)
+        local cfg=config.DEFENSIVE_ALL_DIRECTION_SUPPORT
+        if not cfg or not cfg.enabled or obj.cooldown>0
+            or not players.valid_my_base(carrier)
+            or carrier==config.MY_FIRST then return nil,"UNAVAILABLE" end
+        local attack=field_side.attack_direction()
+        if attack~=1 and attack~=-1 then return nil,"NO_DIRECTION" end
+        local px,py=players.xy(carrier)
+        if zone_for(px,attack)~=1 then return nil,"NOT_DEFENSIVE_THIRD" end
+        local dirs={{1,0,"Right",nil},{-1,0,"Left",nil},
+            {0,1,"Down",nil},{0,-1,"Up",nil},
+            {1,1,"Right","Down"},{1,-1,"Right","Up"},
+            {-1,1,"Left","Down"},{-1,-1,"Left","Up"}}
+        local best=nil
+        players.each_my(function(receiver)
+            if receiver~=carrier then
+                local gk=receiver==config.MY_FIRST
+                local rx,ry=players.xy(receiver)
+                local dst=distance(px,py,rx,ry)
+                local limit=gk and cfg.gk_max_distance or cfg.max_distance
+                if dst>=cfg.min_distance and dst<=limit
+                    and zone_for(rx,attack)~=nil then
+                    for _,v in ipairs(dirs) do
+                        local diagonal=v[4]~=nil
+                        local norm=math.sqrt(v[1]^2+v[2]^2)
+                        local ux,uy=v[1]/norm,v[2]/norm
+                        local projection=(rx-px)*ux+(ry-py)*uy
+                        local offset=math.abs((rx-px)*uy-(ry-py)*ux)
+                        local max_off=gk and cfg.gk_max_ray_offset or cfg.max_ray_offset
+                        -- GK diagonal only if 8-way B is enabled and its
+                        -- projected ray lands sufficiently near the keeper.
+                        if projection>=cfg.min_distance and projection<=limit
+                            and offset<=max_off
+                            and (not diagonal or config.EIGHT_WAY_PASS.enabled) then
+                            local rc,lane,arrival=math.huge,math.huge,math.huge
+                            local lx,ly=px+ux*projection,py+uy*projection
+                            players.each_cpu(function(cpu)
+                                if cpu~=config.CPU_FIRST then
+                                    local ex,ey=players.xy(cpu)
+                                    rc=math.min(rc,distance(rx,ry,ex,ey))
+                                    local along=(ex-px)*ux+(ey-py)*uy
+                                    if along>=0 and along<=projection then
+                                        lane=math.min(lane,
+                                            math.abs((ex-px)*uy-(ey-py)*ux))
+                                    end
+                                    arrival=math.min(arrival,distance(lx,ly,ex,ey))
+                                end
+                            end)
+                            local margin=arrival-offset
+                            local rc_min=gk and cfg.gk_min_receiver_clearance
+                                or cfg.min_receiver_clearance
+                            local lane_min=gk and cfg.gk_min_lane_clearance
+                                or cfg.min_lane_clearance
+                            local margin_min=gk and cfg.gk_min_arrival_margin
+                                or cfg.min_arrival_margin
+                            if rc>=rc_min and lane>=lane_min
+                                and margin>=margin_min then
+                                local forward=(rx-px)*attack
+                                local continuity=0
+                                if not gk then
+                                    continuity=select(1,
+                                        continuity_at(carrier,receiver,rx,ry,attack))
+                                end
+                                local score=math.min(rc,180)*0.55
+                                    +math.min(lane,180)*0.65
+                                    +math.min(margin,200)*0.25
+                                    +forward*cfg.progress_weight
+                                    -offset*1.3+continuity
+                                    +select(1,facing_adjustment(px,py,rx,ry,dst))
+                                    -(gk and cfg.gk_risk_penalty or 0)
+                                if not best or score>best.score then
+                                    best={carrier=carrier,receiver=receiver,zone=1,
+                                        intent=gk and "DEFENSIVE_GK_SUPPORT_8WAY"
+                                            or "DEFENSIVE_SUPPORT_8WAY",
+                                        button=c.button,direction=v[3],vertical=v[4],
+                                        distance=dst,forward=forward,
+                                        lateral=math.abs(ry-py),
+                                        receiver_clearance=rc,lane_clearance=lane,
+                                        arrival_margin=margin,ray_offset=offset,
+                                        continuity_bonus=continuity,
+                                        score=score}
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+        return best,best and "SAFE_SUPPORT" or "NO_SAFE_EXECUTABLE_RAY"
+    end
     function obj.fire(plan,movement)
         if not plan or obj.cooldown>0 then return false end
         if plan.intent=="SHORT_DIAGONAL" or plan.intent=="EIGHT_WAY_DIAGONAL"
-            or (plan.intent=="FINAL_THIRD_PRESSURE_SUPPORT" and plan.vertical) then
+            or ((plan.intent=="FINAL_THIRD_PRESSURE_SUPPORT"
+                or plan.intent=="DEFENSIVE_SUPPORT_8WAY"
+                or plan.intent=="DEFENSIVE_GK_SUPPORT_8WAY") and plan.vertical) then
             movement.press_diagonal_button(plan.direction,plan.vertical,plan.button)
         else
             movement.press_direction_button(plan.direction,plan.button)
