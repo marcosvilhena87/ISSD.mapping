@@ -173,6 +173,26 @@ function obj.observe_five_direction_pass(my_base,outlet,diagnostic)
     local result=five_direction_pass_observer.evaluate(report.frame,my_base,
         outlet and outlet.receiver or nil)
     if not result then return end
+    -- Full diagonal scan is passive and includes receivers omitted by
+    -- distance, sector classification or best-of-sector ranking.
+    for _,candidate in ipairs(result.all_diagonal or {}) do
+        report:write("DIAGONAL_RECEIVER_FULL_SCAN",true,
+            {my_base=my_base},"OBSERVE_DIAGONAL_RECEIVER",
+            "receiver="..tostring(candidate.base)
+            ..";command="..tostring(candidate.command)
+            ..";distance="..tostring(candidate.distance)
+            ..";forward="..tostring(candidate.forward)
+            ..";lateral="..tostring(candidate.lateral)
+            ..";projection="..tostring(candidate.projection)
+            ..";miss="..tostring(candidate.miss)
+            ..";angle="..tostring(candidate.angle)
+            ..";lane="..tostring(candidate.lane)
+            ..";receiver_clearance="..tostring(candidate.receiver_clearance)
+            ..";eligible="..tostring(candidate.eligible)
+            ..";reason="..tostring(candidate.reason)
+            ..";planner_receiver="..tostring(outlet and outlet.receiver)
+            ..";promoted=false")
+    end
     for _,ev in ipairs(reception_feasibility.evaluate(my_base,result)) do
         local point=ev.best
         local details="sector="..tostring(ev.sector)
