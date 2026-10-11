@@ -2,7 +2,8 @@ local M={}
 function M.new(config,players,field_side,mem)
  local c=config.DEFENSIVE_EXIT
  local o={carrier=nil,age=0,start_x=nil,start_y=nil,clearance_used=false,limit_age=0,
-  total_start_x=nil,total_start_y=nil,reassessments=0,pending_frames=0,hold_streak=0,clear_attempts=0}
+  total_start_x=nil,total_start_y=nil,reassessments=0,pending_frames=0,hold_streak=0,clear_attempts=0,
+  progress_x=nil,progress_peak=nil,progress_age=0,stagnation=false,stagnation_announced=false}
  local function d(x,y,a,b) return math.sqrt((x-a)^2+(y-b)^2) end
  local function space(x,y)
   local nearest=99999
@@ -39,7 +40,9 @@ function M.new(config,players,field_side,mem)
  end
  function o.reset() o.carrier=nil;o.age=0;o.start_x=nil;o.start_y=nil;o.clearance_used=false
   o.limit_age=0;o.total_start_x=nil;o.total_start_y=nil
-  o.reassessments=0;o.pending_frames=0;o.hold_streak=0;o.clear_attempts=0 end
+  o.reassessments=0;o.pending_frames=0;o.hold_streak=0;o.clear_attempts=0
+  o.progress_x=nil;o.progress_peak=nil;o.progress_age=0
+  o.stagnation=false;o.stagnation_announced=false end
  function o.on_pass() o.pending_frames=c.action_settle_frames;o.hold_streak=0 end
  local function hold(reason,threat,total)
   o.hold_streak=o.hold_streak+1
@@ -70,6 +73,19 @@ function M.new(config,players,field_side,mem)
   local width=mem.u16(config.ADDR.field_width)
   local center=mem.u16(config.ADDR.center_field_y)
   local dir=field_side.attack_direction()
+  local stall=config.DEFENSIVE_EXIT_STAGNATION
+  if stall and stall.enabled and (dir==1 or dir==-1) then
+   local progress=x*dir
+   if o.progress_peak==nil then
+    o.progress_peak=progress;o.progress_age=0
+   elseif progress>=o.progress_peak+stall.min_progress then
+    o.progress_peak=progress;o.progress_age=0
+    o.stagnation=false;o.stagnation_announced=false
+   else
+    o.progress_age=o.progress_age+1
+    if o.progress_age>=stall.frames then o.stagnation=true end
+   end
+  end
   if width<200 or width>2000 or dir==0 then return {mode="HOLD",reason="BAD_FIELD",threat=threat,age=o.age} end
   local low,high=center-width/2+c.field_margin,center+width/2-c.field_margin
   local best=nil
@@ -191,6 +207,10 @@ function M.new(config,players,field_side,mem)
       local score=math.min(safe,c.escape_space_cap)
         +c.escape_forward_weight*forward
         -c.escape_lateral_penalty*math.abs(v.dy)
+      if o.stagnation and forward>0
+         and safe>=stall.min_forward_clearance then
+       score=score+stall.safe_forward_bonus
+      end
       -- Near-miss pass geometry only biases already-safe dribbles.
       -- Never turn a rejected diagonal candidate into an actual B pass.
       local outlet_adjustment=nil
@@ -223,7 +243,8 @@ function M.new(config,players,field_side,mem)
        best_move={mode="MOVE",dx=v.dx,dy=v.dy,
         reason="SAFE_"..v.kind,score=score,clearance=safe,
         outlet_adjustment=outlet_adjustment,
-        age=o.age,threat=threat}
+        age=o.age,threat=threat,
+        stagnation=o.stagnation,stagnation_age=o.progress_age}
       end
      end
     end
