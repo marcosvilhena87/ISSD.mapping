@@ -3375,7 +3375,7 @@ local function step_bot()
                     and header_contact_allowed(dist,true)
                     and (not timing.enabled or timing_ready) then
                     local dx,dy=bx-px,by-py
-                    movement.move_toward_button(dx,dy,"X")
+                    movement.move_toward_button(dx,dy,"A")
                     header_last_frame=report.frame
                     defensive_header_pending={frame=report.frame,base=my_base,
                         x=bx,y=by,height=height,observed_unowned=false}
@@ -3487,10 +3487,10 @@ local function step_bot()
                 -- Farther away, preserve contact probability by approaching the ball.
                 if attack_dir~=0 and dist<=hc.forward_contact_distance then
                     heading=attack_dir==1 and "Right" or "Left"
-                    movement.press_direction_button(heading,"X")
+                    movement.press_direction_button(heading,"A")
                     header_mode="FORWARD_CLEAR"
                 else
-                    movement.move_toward_button(dx,dy,"X")
+                    movement.move_toward_button(dx,dy,"A")
                 end
                 header_last_frame=report.frame
                 defensive_header_pending={frame=report.frame,base=my_base,

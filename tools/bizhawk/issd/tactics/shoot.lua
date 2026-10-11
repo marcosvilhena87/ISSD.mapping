@@ -44,6 +44,11 @@ function M.new(config, players, field_side)
         if fx<c.min_forward_distance then
             diag.reason="GOAL_BEHIND"; return nil
         end
+        local zone_guard=config.SHOT_ZONE_GUARD
+        if zone_guard and zone_guard.enabled
+            and d>zone_guard.max_goal_distance then
+            diag.reason="SHOT_ZONE_REJECTED"; return nil
+        end
         if d>c.max_distance then diag.reason="TOO_FAR"; return nil end
         if d<1 then diag.reason="GOAL_TOO_CLOSE"; return nil end
         if angle>c.max_shot_angle then
