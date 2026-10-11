@@ -4940,13 +4940,54 @@ local function step_bot()
                             end
                         end
                     end)
+                    -- On a defender-control change, do not abandon a nearby
+                    -- plausible receiver for a far-away projected target.
+                    -- Require trajectory plausibility and a meaningful gap,
+                    -- so a merely nearby decoy cannot hijack the marking.
+                    local reval=config.AERIAL_RECEIVER_TARGET_REVALIDATION
+                    if reval and reval.enabled and receiver
+                        and players.valid_my_base(my_base) then
+                        local current_x,current_y=players.xy(receiver)
+                        local selected_gap=math.sqrt(
+                            (current_x-px)^2+(current_y-py)^2)
+                        local alternate,alternate_gap,alternate_projected=nil,
+                            math.huge,math.huge
+                        players.each_cpu(function(base)
+                            if base~=config.CPU_FIRST and base~=receiver then
+                                local ex,ey=players.xy(base)
+                                local close=math.sqrt((ex-px)^2+(ey-py)^2)
+                                local projected=math.sqrt((ex-tx)^2+(ey-ty)^2)
+                                if close<alternate_gap and
+                                    projected<=reval.max_projection_gap then
+                                    alternate,alternate_gap,alternate_projected=
+                                        base,close,projected
+                                end
+                            end
+                        end)
+                        if alternate and alternate_gap<=reval.near_defender
+                            and selected_gap-alternate_gap>=reval.min_distance_gain
+                            and alternate_projected<=
+                                receiver_distance+reval.projection_tolerance then
+                            report:write("AERIAL_RECEIVER_TARGET_REVALIDATED",true,
+                                {my_base=my_base,possession=possession,game_state=gs},
+                                "OBSERVE_RECEIVER_MARK",
+                                "old="..receiver..";new="..alternate
+                                ..";old_defender_distance="..selected_gap
+                                ..";new_defender_distance="..alternate_gap
+                                ..";old_projected="..receiver_distance
+                                ..";new_projected="..alternate_projected)
+                            receiver=alternate
+                            receiver_distance=alternate_projected
+                        end
+                    end
                     local projected_ball_distance=math.sqrt(
                         (target.x-px)^2+(target.y-py)^2)
                     local receiver_x,receiver_y=nil,nil
                     if receiver then receiver_x,receiver_y=players.xy(receiver) end
                     local defender_receiver_distance=receiver_x and math.sqrt(
                         (receiver_x-px)^2+(receiver_y-py)^2) or math.huge
-                    if receiver and receiver_distance<=mark_cfg.max_receiver_projection
+                    if receiver and receiver_distance<=math.max(mark_cfg.max_receiver_projection,
+                        config.AERIAL_RECEIVER_TARGET_REVALIDATION.max_projection_gap)
                         and defender_receiver_distance<=mark_cfg.max_defender_distance
                         and height>mark_cfg.max_unverified_contact_height then
                         local gx,gy=players.xy(config.MY_FIRST)
