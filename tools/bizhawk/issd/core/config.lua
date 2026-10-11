@@ -535,6 +535,14 @@ M.GROUND_OPPORTUNITY_OBSERVER = {
     cpu_speed=5,
 }
 
+-- Very short post-pass continuity; emergency clearances remain available.
+M.DEFENSIVE_PASS_CONTINUITY = {
+    enabled=true,
+    window_frames=3,
+    emergency_threat=11,
+    release_displacement=8,
+}
+
 M.GROUND_BALL_INTERCEPTION = {
     enabled=true,
     max_height=8,
