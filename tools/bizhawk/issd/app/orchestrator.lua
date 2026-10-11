@@ -1601,7 +1601,9 @@ local function step_bot()
                         elseif plan.direction=="Down" then along,across=dy,math.abs(dx)
                         elseif plan.direction=="Up" then along,across=-dy,math.abs(dx)
                         else along,across=0,math.huge end
-                        if (plan.intent=="SHORT_DIAGONAL" or plan.intent=="EIGHT_WAY_DIAGONAL") then
+                        if (plan.intent=="SHORT_DIAGONAL" or plan.intent=="EIGHT_WAY_DIAGONAL"
+                            or plan.intent=="DEFENSIVE_SUPPORT_8WAY"
+                            or plan.intent=="DEFENSIVE_GK_SUPPORT_8WAY") then
                             local sx=plan.direction=="Right" and 1 or -1
                             local sy=plan.vertical=="Down" and 1 or -1
                             -- Validate ball position projected on desired
@@ -1662,6 +1664,25 @@ local function step_bot()
                             ..";age="..(report.frame-chain.start))
                     end
                     local outlet,outlet_diag=forward_pass.plan(my_base,false,true)
+                    -- Scan intermediate support in every executable direction;
+                    -- prefer a safe, more progressive outlet over recycling.
+                    local all_support,all_reason=
+                        forward_pass.defensive_all_direction_plan(my_base)
+                    if all_support and (not outlet
+                        or all_support.score>outlet.score) then
+                        outlet=all_support
+                    end
+                    if (defensive_hold_age==1 or report.frame%30==0)
+                        and config.DEFENSIVE_ALL_DIRECTION_SUPPORT.enabled then
+                        report:write("DEFENSIVE_ALL_DIRECTION_EVAL",true,
+                            {my_base=my_base,possession=possession,game_state=gs},
+                            "OBSERVE_SUPPORT",
+                            "reason="..tostring(all_reason)
+                            ..";receiver="..tostring(all_support and all_support.receiver)
+                            ..";direction="..tostring(all_support and all_support.direction)
+                            ..";vertical="..tostring(all_support and all_support.vertical)
+                            ..";continuity="..tostring(all_support and all_support.continuity_bonus))
+                    end
                     -- A safe slightly backward support pass is preferable to
                     -- an emergency A-clearance when no progressive outlet exists.
                     local support,support_reason=nil,nil
