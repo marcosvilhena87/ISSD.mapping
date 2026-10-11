@@ -1578,8 +1578,20 @@ local function step_bot()
                         return attach_live_state(state,"PASS_ALIGNMENT","MY_CONTROLLED")
                     end
                                         -- No forward dribble or Y dash while holding the defensive line.
-                    local outlet,outlet_diag=forward_pass.plan(my_base)
+                    local outlet,outlet_diag=forward_pass.plan(my_base,false,true)
                     telemetry_controller.observe_five_direction_pass(my_base,outlet,outlet_diag)
+                    if config.EARLY_DEFENSIVE_OUTLET.enabled
+                        and defensive_hold_age==1 then
+                        report:write("DEF_EARLY_OUTLET_EVAL",true,
+                            {possession=possession,game_state=gs,my_base=my_base},
+                            "OBSERVE_OUTLET",
+                            "available="..tostring(outlet~=nil)
+                            ..";receiver="..tostring(outlet and outlet.receiver)
+                            ..";forward="..tostring(outlet and outlet.forward)
+                            ..";early_short="..tostring(outlet and outlet.early_short)
+                            ..";reason="..tostring(outlet_diag and outlet_diag.reason)
+                            ..";valid="..tostring(outlet_diag and outlet_diag.valid_count))
+                    end
                     -- Report rejected outlet candidates sparingly. This never
                     -- changes the chosen movement or emergency clearance.
                     if not outlet and outlet_diag
@@ -1680,7 +1692,8 @@ local function step_bot()
                             ..";expected_receiver="..tostring(outlet.receiver)
                             ..";direction="..tostring(outlet.direction)
                             ..";vertical="..tostring(outlet.vertical)
-                            ..";intent="..tostring(outlet.intent))
+                            ..";intent="..tostring(outlet.intent)
+                            ..";early_short="..tostring(outlet.early_short))
                         defensive_pass_alignment=nil
                         defensive_alignment_blocks={}
                         local state=make_state(my_base,0,0,
