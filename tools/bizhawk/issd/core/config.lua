@@ -82,6 +82,13 @@ M.VERTICAL_HEADER_REACH_GUARD = {
 -- Mark the projected CPU receiver rather than chase unreachable overhead ball.
 -- Cross: reserve the controlled defender for far-side coverage only when
 -- a different teammate is closer to the first loose-ball contest.
+-- Tie-breaking only: trajectory feasibility and contact ETA dominate.
+-- Labels 1/2/3 correspond to top/central/bottom field strips.
+M.CROSS_CORRIDOR_RECEIVER_PRIORITY = {
+    enabled=true,
+    switch_bonus=2,
+}
+
 M.CROSS_SECOND_BALL_COVER = {
     enabled=true,
     goal_radius=430,
