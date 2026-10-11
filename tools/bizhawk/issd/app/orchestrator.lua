@@ -153,7 +153,7 @@ local defensive_pass_pending=nil
 local defensive_pass_sequence=0
 local defensive_alignment_blocks={}
 local bot_build_logged=false
-local BOT_BUILD_ID="pass-reception-feasibility-20261010-v78"
+local BOT_BUILD_ID="defensive-pass-flight-calibration-20261010-v79"
 local defensive_escape_pending=nil
 local defensive_clear_charge=nil
 local clearance_calibration_index=0
@@ -459,7 +459,8 @@ end
 local pass_window_tracker = dofile(DIR .. "../state/pass_window_tracker.lua").new(config,players)
 local reception_feasibility = dofile(DIR .. "../state/pass_reception_feasibility_observer.lua").new(config,players)
 local telemetry_controller = dofile(DIR .. "telemetry_controller.lua").new({
-    reception_feasibility=reception_feasibility, 
+    reception_feasibility=reception_feasibility,
+    pass_calibration=dofile(DIR .. "../state/defensive_pass_calibration.lua").new(config,players), 
     opportunity_tracker=pass_window_tracker,
     report=report,
     config=config,
@@ -747,6 +748,9 @@ local function step_bot()
             reason=possession==p.passer and "PASSER_STILL_OWNS"
                 or "NO_CONFIRMED_RECEIVER"
         end
+        local calibration_x,calibration_y=ball.world_xy()
+        telemetry_controller.observe_defensive_pass_calibration(
+            p,report.frame,possession,calibration_x,calibration_y,kind,gs)
         if kind then
             report:write("DEFENSIVE_"..kind,true,
                 {possession=possession,game_state=gs,my_base=my_base},
