@@ -411,6 +411,16 @@ M.CLEAR_LANE_SHOT_APPROACH = {
     max_lateral_drift=24,
 }
 
+M.CLOSE_RANGE_SHOT_ESCAPE = {
+    enabled=true,
+    max_goal_distance=245,
+    max_lane_frames=36,
+    cooldown_frames=100,
+    lateral_step=44,
+    central_step=55,
+    min_lateral_gain=12,
+}
+
 M.SHOOT = {
     button = "X",
     dash_shoot_calibration = true, -- alternate normal and Y+X shots
