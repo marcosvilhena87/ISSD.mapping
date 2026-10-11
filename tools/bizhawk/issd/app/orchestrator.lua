@@ -4332,6 +4332,66 @@ local function step_bot()
             target.player_ball_distance = target.player_ball_distance
                 or math.sqrt((bx-px)^2+(by-py)^2)
 
+            -- On high CPU deliveries the nearest selected defender should
+            -- not chase an airborne ball that cannot be reached in 3D.
+            -- Preserve goal-side marking of the likely receiver instead.
+            local mark_cfg=config.AERIAL_RECEIVER_MARKING
+            if mark_cfg.enabled and not danger and
+                effective_unowned_team=="CPU" then
+                local height=math.max(0,-mem.s16(config.AERIAL_CONTACT.height_addr))
+                if height>=mark_cfg.min_height then
+                    local vx=possession_context.ball_dx or 0
+                    local vy=possession_context.ball_dy or 0
+                    local eta=mark_cfg.projection_frames
+                    local tx,ty=bx+vx*eta,by+vy*eta
+                    local receiver=nil
+                    local receiver_distance=math.huge
+                    players.each_cpu(function(base)
+                        if base~=config.CPU_FIRST then
+                            local ex,ey=players.xy(base)
+                            local dd=math.sqrt((ex-tx)^2+(ey-ty)^2)
+                            if dd<receiver_distance then
+                                receiver,receiver_distance=base,dd
+                            end
+                        end
+                    end)
+                    local projected_ball_distance=math.sqrt(
+                        (target.x-px)^2+(target.y-py)^2)
+                    local receiver_x,receiver_y=nil,nil
+                    if receiver then receiver_x,receiver_y=players.xy(receiver) end
+                    local defender_receiver_distance=receiver_x and math.sqrt(
+                        (receiver_x-px)^2+(receiver_y-py)^2) or math.huge
+                    if receiver and receiver_distance<=mark_cfg.max_receiver_projection
+                        and defender_receiver_distance<=mark_cfg.max_defender_distance
+                        and height>mark_cfg.max_unverified_contact_height then
+                        local gx,gy=players.xy(config.MY_FIRST)
+                        local gx_delta,gy_delta=gx-receiver_x,gy-receiver_y
+                        local goal_dist=math.sqrt(gx_delta^2+gy_delta^2)
+                        if goal_dist>0 then
+                            local mx=receiver_x+gx_delta/goal_dist*mark_cfg.goal_side_offset
+                            local my=receiver_y+gy_delta/goal_dist*mark_cfg.goal_side_offset
+                            movement.move_toward(mx-px,my-py)
+                            local state=make_state(my_base,mx-px,my-py,
+                                "AERIAL_RECEIVER_MARKING",possession,gs)
+                            state.marked_receiver=receiver
+                            state.ball_height=height
+                            state.receiver_distance=defender_receiver_distance
+                            state.intercept_player_ball_distance=projected_ball_distance
+                            if report.frame%mark_cfg.trace_interval==0 then
+                                report:write("AERIAL_RECEIVER_MARKING",true,state,
+                                    movement.last_command,
+                                    "receiver="..receiver..";height="..height
+                                    ..";defender_receiver="..defender_receiver_distance
+                                    ..";receiver_projection="..receiver_distance
+                                    ..";mark_x="..mx..";mark_y="..my)
+                            end
+                            return attach_live_state(state,"RECEIVER_MARKING",
+                                "CPU_UNOWNED_BALL")
+                        end
+                    end
+                end
+            end
+
             local switch_state = maybe_switch_player(
                 target.x,
                 target.y,
