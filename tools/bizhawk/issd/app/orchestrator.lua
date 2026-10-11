@@ -1518,6 +1518,14 @@ local function step_bot()
                                 ..";threat="..tostring(ch.threat)
                                 ..";clearance_sequence="..sequence
                                 ..";variant="..tostring(ch.variant))
+                            defensive_clear_execution={frame=report.frame,
+                                carrier=ch.carrier,direction=ch.direction,
+                                x=cbx,y=cby}
+                            report:write("DEF_CLEAR_EXECUTION_REQUESTED",true,
+                                {possession=possession,game_state=gs,my_base=my_base},
+                                "OBSERVE_CLEAR_EXECUTION",
+                                "carrier="..ch.carrier..";direction="..ch.direction
+                                ..";charge_frames="..ch.frames)
                             defensive_clear_charge=nil
                             local state=make_state(my_base,0,0,
                                 "DEF_CLEAR_RELEASE",possession,gs)
@@ -1879,6 +1887,31 @@ local function step_bot()
                         telemetry_controller.observe_pass_preemption(
                             defensive_pass_pending,report.frame,possession,
                             "PRESSURE_CLEAR",exit.threat,exit.reason,gs)
+                        local vc=config.DEFENSIVE_CLEARANCE_EXECUTION_VALIDATION
+                        local retry=defensive_clear_retry_block
+                        local same_direction=vc.enabled and retry
+                            and retry.carrier==my_base
+                            and retry.direction==exit.direction
+                            and report.frame<retry.until_frame
+                        local waiting=vc.enabled and defensive_clear_execution
+                            and defensive_clear_execution.carrier==my_base
+                        local emergency=exit.threat~=nil
+                            and exit.threat<=vc.emergency_threat
+                        if (same_direction or waiting) and not emergency then
+                            movement.stop()
+                            if report.frame%10==0 then
+                                report:write("DEF_CLEAR_RETRY_PREVENTED",true,
+                                    {possession=possession,game_state=gs,my_base=my_base},
+                                    "OBSERVE_CLEAR_EXECUTION",
+                                    "reason="..(waiting and "WAIT_RELEASE"
+                                        or "REPEAT_FAILED_DIRECTION")
+                                    ..";direction="..tostring(exit.direction))
+                            end
+                            local state=make_state(my_base,0,0,
+                                "DEF_CLEAR_REASSESS",possession,gs)
+                            return attach_live_state(state,"DEFENSIVE_TRANSITION",
+                                "MY_CONTROLLED")
+                        end
                         local charge_cfg=config.CHARGED_DEFENSIVE_CLEARANCE
                         local charging=exit.button=="A"
                             and (exit.direction=="Left" or exit.direction=="Right")
