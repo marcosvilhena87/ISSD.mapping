@@ -1705,6 +1705,37 @@ local function step_bot()
                             and across<=cfg.max_lateral_offset
                             and along>=across*cfg.dominance_ratio
                         a.confirmed=facing and a.confirmed+1 or 0
+                        -- Passive diagnostics: ball-relative geometry is only
+                        -- a proxy for facing, not the ROM's facing register.
+                        -- Capture each frame including the terminal one.
+                        local facing_reason="OK"
+                        if along<cfg.min_forward_offset then
+                            facing_reason="BEHIND_OR_TOO_CLOSE"
+                        elseif along>cfg.max_ball_offset then
+                            facing_reason="BALL_TOO_FAR"
+                        elseif across>cfg.max_lateral_offset then
+                            facing_reason="LATERAL_OFFSET"
+                        elseif along<across*cfg.dominance_ratio then
+                            facing_reason="DOMINANCE"
+                        end
+                        report:write("PASS_FACING_CONFIRMATION_DIAG",true,
+                            {my_base=my_base,possession=possession,game_state=gs},
+                            "OBSERVE_FACING",
+                            "receiver="..tostring(plan.receiver)
+                            ..";direction="..tostring(plan.direction)
+                            ..";vertical="..tostring(plan.vertical)
+                            ..";intent="..tostring(plan.intent)
+                            ..";dx="..dx..";dy="..dy
+                            ..";along="..along..";across="..across
+                            ..";facing="..tostring(facing)
+                            ..";reason="..facing_reason
+                            ..";confirmed="..a.confirmed
+                            ..";required="..cfg.confirm_frames
+                            ..";pressure="..nearest
+                            ..";closing="..closing
+                            ..";age="..age..";budget="..budget
+                            ..";recovery="..tostring(recovery_allowed)
+                            ..";button=NONE_OR_DIRECTION_ONLY")
                         if a.confirmed>=cfg.confirm_frames then
                             if recovery_allowed then
                                 report:write("PASS_ORIENTATION_CONFIRMED_UNDER_PRESSURE",
