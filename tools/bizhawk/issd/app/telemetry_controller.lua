@@ -19,6 +19,22 @@ function M.new(d)
     local reception_feasibility=d.reception_feasibility
     local pass_calibration=d.pass_calibration
 
+-- Passive audit of competing tactical action while a pass is pending.
+function obj.observe_pass_preemption(p,frame,owner,action,threat,reason,gs)
+    if not p then return end
+    report:write("DEF_PASS_PREEMPTION_AUDIT",true,
+        {possession=owner,game_state=gs},"OBSERVE_PASS_PREEMPTION",
+        "sequence="..tostring(p.sequence)
+        ..";age="..tostring(frame-p.frame)
+        ..";passer="..tostring(p.passer)
+        ..";receiver="..tostring(p.receiver)
+        ..";command_direction="..tostring(p.direction)
+        ..";next_action="..tostring(action)
+        ..";threat="..tostring(threat)
+        ..";decision_reason="..tostring(reason)
+        ..";passer_still_owns="..tostring(owner==p.passer))
+end
+
 function obj.observe_defensive_pass_calibration(p,frame,owner,bx,by,outcome,gs)
     for _,ev in ipairs(pass_calibration.observe(frame,p,owner,bx,by,outcome)) do
         report:write(ev.kind,true,{possession=owner,game_state=gs},
