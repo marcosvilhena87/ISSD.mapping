@@ -2233,8 +2233,29 @@ local function step_bot()
                 end
                 local poor_angle=shoot_diag and
                     shoot_diag.reason=="BAD_SHOT_ANGLE"
-                local pass=forward_pass.plan(my_base,poor_angle)
+                local pass,support_reason=forward_pass.final_third_support_plan(my_base)
+                if not pass then pass=forward_pass.plan(my_base,poor_angle) end
+                if pass and pass.intent=="FINAL_THIRD_PRESSURE_SUPPORT" then
+                    report:write("FINAL_THIRD_PRESSURE_SUPPORT_EVAL",true,
+                        {my_base=my_base,possession=possession,game_state=gs},
+                        "SAFE_SUPPORT","receiver="..tostring(pass.receiver)
+                        ..";pressure="..tostring(pass.pressure)
+                        ..";forward="..tostring(pass.forward)
+                        ..";direction="..tostring(pass.direction)
+                        ..";vertical="..tostring(pass.vertical)
+                        ..";lane="..tostring(pass.lane_clearance)
+                        ..";arrival_margin="..tostring(pass.arrival_margin))
+                end
                 if pass and forward_pass.fire(pass,movement) then
+                    if pass.intent=="FINAL_THIRD_PRESSURE_SUPPORT" then
+                        report:write("FINAL_THIRD_SUPPORT_PASS_SENT",true,
+                            {my_base=my_base,possession=possession,game_state=gs},
+                            movement.last_command,
+                            "receiver="..tostring(pass.receiver)
+                            ..";direction="..tostring(pass.direction)
+                            ..";vertical="..tostring(pass.vertical)
+                            ..";pressure="..tostring(pass.pressure))
+                    end
                     if midfield_rebuild then
                         report:write("MIDFIELD_REBUILD_PASS",true,
                             {possession=possession,game_state=gs,my_base=my_base},
