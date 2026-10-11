@@ -2956,6 +2956,7 @@ local function step_bot()
             or nearest_header_cpu<=header_gate.opponent_radius
         local header_emergency=header_goal_distance<=
             header_gate.emergency_goal_radius
+        local timing=config.AERIAL_HEADER_TIMING
         local function header_contact_allowed(distance_to_ball, predictive)
             local reach=predictive and
                 config.DEFENSIVE_HEADER.predictive_max_distance
@@ -2991,6 +2992,27 @@ local function step_bot()
             local descent=aerial_predict_last_height and
                 (aerial_predict_last_height-height) or 0
             aerial_predict_last_height=valid and height or nil
+            local contact_eta=nil
+            if descent>=timing.min_descent then
+                contact_eta=math.max(0,
+                    (height-timing.target_height)/descent)
+            end
+            local timing_ready=contact_eta~=nil
+                and contact_eta<=timing.max_eta_frames
+                and math.abs(contact_eta-timing.animation_lead_frames)
+                    <=timing.tolerance_frames
+            if valid and active and report.frame%timing.trace_interval==0 then
+                report:write("AERIAL_HEADER_TIMING_TRACE",true,
+                    {possession=possession,game_state=gs,my_base=my_base},
+                    "OBSERVE_HEADER_TIMING",
+                    "height="..height..";descent="..descent
+                    ..";contact_eta="..tostring(contact_eta)
+                    ..";target_height="..timing.target_height
+                    ..";lead="..timing.animation_lead_frames
+                    ..";ready="..tostring(timing_ready)
+                    ..";distance="..dist
+                    ..";cpu_distance="..nearest_header_cpu)
+            end
             if valid and hc.predictive_enabled and goal_dist<=hc.goal_radius
                 and height>=hc.predictive_min_height
                 and height<=hc.predictive_max_height
@@ -3005,7 +3027,8 @@ local function step_bot()
                 if approach_eta<=hc.predictive_max_lead_frames
                     and fall_eta<=hc.predictive_max_lead_frames
                     and approach_eta<=fall_eta+2
-                    and header_contact_allowed(dist,true) then
+                    and header_contact_allowed(dist,true)
+                    and (not timing.enabled or timing_ready) then
                     local dx,dy=bx-px,by-py
                     movement.move_toward_button(dx,dy,"X")
                     header_last_frame=report.frame
@@ -3017,6 +3040,12 @@ local function step_bot()
                     state.header_distance=dist
                     state.header_goal_distance=goal_dist
                     state.header_mode="PREDICTIVE_EARLY"
+                    report:write("AERIAL_HEADER_TIMING_FIRE",true,state,
+                        movement.last_command,
+                        "mode=PREDICTIVE;contact_eta="..tostring(contact_eta)
+                        ..";lead="..timing.animation_lead_frames
+                        ..";height="..height..";descent="..descent
+                        ..";distance="..dist)
                     report:write("DEFENSIVE_HEADER_PREDICTIVE",true,state,
                         movement.last_command,
                         "height="..height..";distance="..dist
@@ -3065,12 +3094,14 @@ local function step_bot()
                 local dx,dy=bx-px,by-py
                 -- Continue closing the gap; neutral AI assist previously
                 -- allowed the aerial clearance window to expire unchallenged.
-                movement.move_toward(dx,dy)
+                if timing.native_positioning then movement.stop()
+                else movement.move_toward(dx,dy) end
                 local state=make_state(my_base,dx,dy,
-                    "AERIAL_CONTEST_APPROACH",possession,gs)
+                    timing.native_positioning and "AERIAL_AI_ASSIST"
+                        or "AERIAL_CONTEST_APPROACH",possession,gs)
                 state.header_height=height
                 state.header_distance=dist
-                state.aerial_ai_assist=false
+                state.aerial_ai_assist=timing.native_positioning
                 return attach_live_state(state,"AERIAL_CONTEST","MY_UNOWNED_BALL")
             end
         end
@@ -3094,6 +3125,9 @@ local function step_bot()
                 and height>=hc.min_height and height<=hc.max_height
                 and dist<=hc.contact_distance and descending
                 and header_contact_allowed(dist)
+                and (not timing.enabled or
+                    (aerial_predict_last_height~=nil
+                     and timing_ready))
                 and report.frame-header_last_frame>=hc.cooldown_frames then
                 local dx,dy=bx-px,by-py
                 local attack_dir=field_side.attack_direction()
@@ -3118,6 +3152,10 @@ local function step_bot()
                 state.header_goal_distance=goal_dist
                 state.header_mode=header_mode
                 state.header_heading=heading
+                report:write("AERIAL_HEADER_TIMING_FIRE",true,state,
+                    movement.last_command,
+                    "mode=CONTACT;lead="..timing.animation_lead_frames
+                    ..";height="..height..";distance="..dist)
                 report:write("DEFENSIVE_HEADER_ATTEMPT",true,state,
                     movement.last_command,
                     "height="..height..";distance="..dist
