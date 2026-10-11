@@ -639,6 +639,8 @@ M.BOX_COVERAGE = {
 -- Experimental defensive sprint; verified velocity benefit pending BizHawk test.
 M.DEFENSIVE_DASH = {
     button = "Y",
+    pre_shot_start_distance = 65, -- start sooner on exposed shooting lane
+    pre_shot_stop_distance = 35, -- release Y for final blocking precision
     start_distance = 105,
     recovery_start_distance = 70, -- accelerate on viable loose-ball approaches
     stop_distance = 55,
