@@ -547,6 +547,7 @@ M.DEFENSIVE_PASS_CONTINUITY = {
 M.CORNER_INTERCEPT_COMMIT = {
     enabled=true, max_my_distance=125, min_eta_advantage=3,
     estimated_speed=5, lock_frames=12, max_ball_drift=48,
+    retain_eta_advantage=-2, retain_max_distance=145,
     max_height=8, min_cpu_emergency_distance=12,
 }
 
