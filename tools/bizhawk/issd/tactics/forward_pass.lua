@@ -310,10 +310,25 @@ function M.new(config,players,field_side,mem)
                         if prefer_central then
                             score=score+0.7*(math.abs(py-goal_y)-math.abs(ry-goal_y))
                         end
+                        -- Rank secure progressive outlets higher without
+                        -- bypassing any existing pass feasibility guard.
+                        local priority=config.PROGRESSIVE_PASS_PRIORITY
+                        local progress_bonus=0
+                        if priority and priority.enabled and zone<3
+                            and intent=="PROGRESSIVE"
+                            and forward>=priority.min_forward
+                            and receiver_clearance>=min_rc+priority.min_receiver_margin
+                            and corridor>=min_lc+priority.min_lane_margin then
+                            progress_bonus=math.min(
+                                forward-priority.min_forward,
+                                priority.max_forward_bonus)*priority.forward_bonus
+                            score=score+progress_bonus
+                        end
                         if not best or score>best.score then
                             best={receiver=base,distance=d,forward=forward,
                                 lateral=lateral,receiver_clearance=receiver_clearance,
                                 lane_clearance=corridor,score=score,
+                                progress_bonus=progress_bonus,
                                 direction=direction,button=c.button,
                                 carrier=carrier,zone=zone,intent=intent}
                         end
