@@ -543,6 +543,13 @@ M.DEFENSIVE_PASS_CONTINUITY = {
     release_displacement=8,
 }
 
+-- Short same-player commitment to a reachable loose ball near the corner.
+M.CORNER_INTERCEPT_COMMIT = {
+    enabled=true, max_my_distance=125, min_eta_advantage=3,
+    estimated_speed=5, lock_frames=12, max_ball_drift=48,
+    max_height=8, min_cpu_emergency_distance=12,
+}
+
 M.GROUND_BALL_INTERCEPTION = {
     enabled=true,
     max_height=8,
