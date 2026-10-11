@@ -156,6 +156,8 @@ local bot_build_logged=false
 local BOT_BUILD_ID="goal-corridor-early-cover-20261010-v88"
 local defensive_escape_pending=nil
 local defensive_clear_charge=nil
+local defensive_clear_execution=nil
+local defensive_clear_retry_block=nil
 local clearance_calibration_index=0
 local rebound_lock_base=nil
 local rebound_lock_frames=0
@@ -1426,6 +1428,37 @@ local function step_bot()
             )
         end
 
+        if defensive_clear_execution then
+            local e=defensive_clear_execution
+            local vc=config.DEFENSIVE_CLEARANCE_EXECUTION_VALIDATION
+            local age=report.frame-e.frame
+            local xx,yy=ball.world_xy()
+            local travel=math.sqrt((xx-e.x)^2+(yy-e.y)^2)
+            local outcome,reason=nil,nil
+            if gs~=0 then
+                outcome,reason="FAILED","STOPPAGE"
+            elseif possession~=e.carrier then
+                outcome=travel>=vc.min_ball_travel and "RELEASED" or "FAILED"
+                reason=outcome=="RELEASED" and "OWNER_CHANGED_BALL_MOVED"
+                    or "OWNER_CHANGED_NO_TRAVEL"
+            elseif age>=vc.confirm_frames then
+                outcome,reason="FAILED","STILL_CARRIER"
+            end
+            if outcome then
+                report:write("DEF_CLEAR_EXECUTION_"..outcome,true,
+                    {possession=possession,game_state=gs,my_base=my_base},
+                    "OBSERVE_CLEAR_EXECUTION",
+                    "reason="..reason..";age="..age
+                    ..";travel="..travel..";carrier="..e.carrier
+                    ..";direction="..e.direction)
+                if reason=="STILL_CARRIER" then
+                    defensive_clear_retry_block={carrier=e.carrier,
+                        direction=e.direction,
+                        until_frame=report.frame+vc.retry_block_frames}
+                end
+                defensive_clear_execution=nil
+            end
+        end
         -- 0x00A6 continua sendo a fonte autoritativa para o jogador
         -- fisicamente ligado a bola.
         if players.valid_my_base(possession) then
