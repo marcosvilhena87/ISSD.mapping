@@ -153,7 +153,7 @@ local defensive_pass_pending=nil
 local defensive_pass_sequence=0
 local defensive_alignment_blocks={}
 local bot_build_logged=false
-local BOT_BUILD_ID="pass-window-persistence-20261010-v77"
+local BOT_BUILD_ID="pass-reception-feasibility-20261010-v78"
 local defensive_escape_pending=nil
 local defensive_clear_charge=nil
 local clearance_calibration_index=0
@@ -457,7 +457,9 @@ local function observe_second_ball_race(possession,gs,my_base,second_ball_lock)
 end
 
 local pass_window_tracker = dofile(DIR .. "../state/pass_window_tracker.lua").new(config,players)
-local telemetry_controller = dofile(DIR .. "telemetry_controller.lua").new({ 
+local reception_feasibility = dofile(DIR .. "../state/pass_reception_feasibility_observer.lua").new(config,players)
+local telemetry_controller = dofile(DIR .. "telemetry_controller.lua").new({
+    reception_feasibility=reception_feasibility, 
     opportunity_tracker=pass_window_tracker,
     report=report,
     config=config,
