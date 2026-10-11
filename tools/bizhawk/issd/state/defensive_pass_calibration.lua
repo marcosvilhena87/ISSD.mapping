@@ -18,7 +18,7 @@ function M.new(config,players)
   if not obj.active or obj.active.sequence~=p.sequence then
    obj.active={sequence=p.sequence,start=p.frame,last_x=p.ball_x,
     last_y=p.ball_y,max_speed=0,travel=0,samples=0,release=nil,
-    max_offset=0,observed_direction=nil}
+    max_offset=0,observed_direction=nil,owner_left=false,physical_release=nil}
   end
   local a=obj.active
   local age=frame-p.frame
@@ -27,7 +27,21 @@ function M.new(config,players)
   a.max_speed=math.max(a.max_speed,speed)
   a.travel=a.travel+speed
   a.samples=a.samples+1
-  if not a.release and owner~=p.passer then a.release=frame end
+  if owner~=p.passer then
+   a.owner_left=true
+   if not a.release then a.release=frame end
+  end
+  -- Physical release is corroborated by owner departure and actual ball travel.
+  -- Owner changes alone are not sufficient proof of a successful pass.
+  local start_dx,start_dy=bx-p.ball_x,by-p.ball_y
+  local displacement=math.sqrt(start_dx*start_dx+start_dy*start_dy)
+  if not a.physical_release and a.owner_left and displacement>=8 then
+   a.physical_release=frame
+   events[#events+1]={kind="DEF_PASS_RELEASE_CONFIRMED",
+    sequence=p.sequence,age=age,owner=owner,travel=a.travel,
+    displacement=displacement,mode=p.intent,direction=p.direction,
+    receiver=p.receiver}
+  end
   local vx,vy=direction_vec(p.direction,p.vertical)
   local travel_x,travel_y=bx-p.ball_x,by-p.ball_y
   local along=vx and (travel_x*vx+travel_y*vy) or nil
@@ -44,7 +58,11 @@ function M.new(config,players)
     cross=cross,mode=p.intent,direction=p.direction,receiver=p.receiver,
     max_speed=a.max_speed,max_offset=a.max_offset,
     release_age=a.release and a.release-a.start or nil,
-    samples=a.samples,outcome=outcome}
+    samples=a.samples,outcome=outcome,
+    physical_release_age=a.physical_release and a.physical_release-a.start or nil,
+    release_confirmed=a.physical_release~=nil,
+    disposition=a.physical_release and "RELEASE_OBSERVED"
+     or (a.owner_left and "OWNER_LEFT_WITHOUT_TRAVEL" or "NO_RELEASE_EVIDENCE")}
    obj.active=nil
   end
   a.last_x=bx;a.last_y=by
