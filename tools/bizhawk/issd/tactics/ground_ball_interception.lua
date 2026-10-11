@@ -19,7 +19,9 @@ function M.new(config,players,field_boundary)
   local lead=math.min(c.max_lead_frames,math.floor(dist/c.estimated_player_speed))
   if speed<c.min_ball_speed then lead=0 end
   local tx,ty=bx+vx*lead,by+vy*lead
-  local corrected=field_boundary.correct(px,py,tx,ty)
+  local raw_x,raw_y=tx,ty
+  local corrected=field_boundary.interception_target(px,py,tx,ty)
+  local dribble_corrected=field_boundary.correct(px,py,tx,ty)
   tx,ty=corrected.x,corrected.y
   if o.lock and o.lock.team==team and o.lock.base==base
       and frame-o.lock.start<c.lock_frames
@@ -29,7 +31,14 @@ function M.new(config,players,field_boundary)
   else
     o.lock={team=team,base=base,start=frame,x=tx,y=ty,bx=bx,by=by}
   end
-  return {x=tx,y=ty,lead=lead,speed=speed,distance=dist,team=team,height=height}
+  return {x=tx,y=ty,lead=lead,speed=speed,distance=dist,team=team,height=height,
+   raw_x=raw_x,raw_y=raw_y,boundary_valid=corrected.valid,
+   near_corner=corrected.near_corner,
+   legacy_x=dribble_corrected.x,legacy_y=dribble_corrected.y,
+   legacy_deviation=math.sqrt((dribble_corrected.x-raw_x)^2+
+    (dribble_corrected.y-raw_y)^2),
+   interception_deviation=math.sqrt((corrected.x-raw_x)^2+
+    (corrected.y-raw_y)^2)}
  end
  return o
 end
