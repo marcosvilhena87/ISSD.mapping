@@ -89,6 +89,17 @@ M.CROSS_CORRIDOR_RECEIVER_PRIORITY = {
     switch_bonus=2,
 }
 
+M.PRE_RECEPTION_PRESSURE_LOCK = {
+    enabled=true,
+    max_frames=24,
+    max_contact_eta=15,
+    max_pressure_distance=115,
+    first_ball_radius=38,
+    first_ball_height=24,
+    goal_side_offset=24,
+    trace_interval=5,
+}
+
 M.CROSS_SECOND_BALL_COVER = {
     enabled=true,
     goal_radius=430,
