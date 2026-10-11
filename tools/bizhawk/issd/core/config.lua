@@ -360,6 +360,23 @@ M.PROGRESSIVE_PASS_PRIORITY = {
     max_forward_bonus=130,
 }
 
+-- Fallback 8-way B input: projected ray + reachable receiver.
+-- Conservative limits until ROM diagonal ball trajectories are calibrated.
+M.EIGHT_WAY_PASS = {
+    enabled=true,
+    max_distance=235,
+    min_forward=45,
+    max_receiver_ray_offset=30,
+    min_receiver_clearance=85,
+    min_corridor_clearance=65,
+    min_cpu_arrival_margin=28,
+    min_ray_projection=45,
+    max_ray_projection=250,
+    diagonal_extra_margin=15,
+    receiver_speed=4,
+    cpu_speed=5,
+}
+
 M.FORWARD_PASS = {
     button = "B",
     min_forward = 75,
