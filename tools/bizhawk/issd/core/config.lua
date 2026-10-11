@@ -398,6 +398,16 @@ M.PASS_RECEPTION_FEASIBILITY = {
     contested_eta_margin=3,
 }
 
+-- Under stagnant defensive possession, favor safe forward movement over
+-- endless lateral circulation; never waive pass or dribble safety checks.
+M.DEFENSIVE_EXIT_STAGNATION = {
+    enabled=true,
+    frames=55,
+    min_progress=28,
+    min_forward_clearance=85,
+    safe_forward_bonus=65,
+}
+
 M.DEFENSIVE_EXIT = {
     lateral_min=65, lateral_max=190, max_horizontal=30,
     max_pass_distance=210, receiver_clearance=80,
