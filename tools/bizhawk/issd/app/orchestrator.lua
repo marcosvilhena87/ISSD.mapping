@@ -3606,6 +3606,85 @@ local function step_bot()
             header_last_height=nil
         end
 
+        -- Protect the far-side receiver of a cross when a DIFFERENT
+        -- teammate is already closer to the first falling ball.
+        -- Single-controller safeguard: do not abandon the first contest.
+        do
+            local cfg=config.CROSS_SECOND_BALL_COVER
+            if cfg and cfg.enabled and gs==0 and possession==0
+                and players.valid_my_base(my_base)
+                and my_base~=config.MY_FIRST then
+                local h=math.max(0,-mem.s16(config.AERIAL_CONTACT.height_addr))
+                local gx,gy=players.xy(config.MY_FIRST)
+                local goal_distance=math.sqrt((bx-gx)^2+(by-gy)^2)
+                local vx=possession_context.ball_dx or 0
+                local vy=possession_context.ball_dy or 0
+                local velocity=math.sqrt(vx*vx+vy*vy)
+                if goal_distance<=cfg.goal_radius
+                    and h>=cfg.min_height and h<=cfg.max_height
+                    and velocity>=cfg.min_ball_speed then
+                    local px,py=players.xy(my_base)
+                    local controlled_ball=math.sqrt((px-bx)^2+(py-by)^2)
+                    local first_other=math.huge
+                    players.each_my(function(base)
+                        if base~=config.MY_FIRST and base~=my_base then
+                            local x,y=players.xy(base)
+                            first_other=math.min(first_other,
+                                math.sqrt((x-bx)^2+(y-by)^2))
+                        end
+                    end)
+                    local tx=bx+vx*cfg.projection_frames
+                    local ty=by+vy*cfg.projection_frames
+                    local target,dist=nil,math.huge
+                    players.each_cpu(function(base)
+                        if base~=config.CPU_FIRST then
+                            local x,y=players.xy(base)
+                            local from_ball=math.sqrt((x-bx)^2+(y-by)^2)
+                            local from_target=math.sqrt((x-tx)^2+(y-ty)^2)
+                            local from_goal=math.sqrt((x-gx)^2+(y-gy)^2)
+                            if from_ball>=cfg.min_receiver_ball_distance
+                                and from_target<=cfg.max_receiver_projection
+                                and from_goal<=cfg.receiver_goal_radius
+                                and from_target<dist then
+                                target,dist=base,from_target
+                            end
+                        end
+                    end)
+                    if target and first_other+cfg.first_contest_margin
+                        <controlled_ball then
+                        local rx,ry=players.xy(target)
+                        local dx,dy=gx-rx,gy-ry
+                        local norm=math.sqrt(dx*dx+dy*dy)
+                        if norm>1 then
+                            local mx=rx+dx/norm*cfg.goal_side_offset
+                            local my=ry+dy/norm*cfg.goal_side_offset
+                            local guarded=field_boundary.correct(px,py,mx,my)
+                            local mx_delta,my_delta=guarded.x-px,guarded.y-py
+                            movement.move_toward(mx_delta,my_delta)
+                            local state=make_state(my_base,mx_delta,my_delta,
+                                "CROSS_SECOND_BALL_COVER",possession,gs)
+                            state.marked_receiver=target
+                            state.intercept_target_x=guarded.x
+                            state.intercept_target_y=guarded.y
+                            if report.frame%cfg.trace_interval==0 then
+                                report:write("CROSS_SECOND_BALL_COVER",true,state,
+                                    movement.last_command,
+                                    "receiver="..target
+                                    ..";other_first="..first_other
+                                    ..";controlled_first="..controlled_ball
+                                    ..";projected_distance="..dist
+                                    ..";target_x="..guarded.x
+                                    ..";target_y="..guarded.y)
+                            end
+                            return attach_live_state(state,"SECOND_BALL_COVER",
+                                effective_unowned_team=="CPU"
+                                and "CPU_UNOWNED_BALL" or "MY_UNOWNED_BALL")
+                        end
+                    end
+                end
+            end
+        end
+
         -- Persist receiver marking through the falling-ball/contact window.
         -- This precedes the general A/X aerial decision and ball chase.
         do
