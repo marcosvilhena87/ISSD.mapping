@@ -1630,18 +1630,6 @@ local function step_bot()
                     -- sprite-facing memory address.
                     local function align_defensive_pass(plan)
                         local empirical=config.EMPIRICAL_DEFENSIVE_B_PASS
-                        if empirical and empirical.enabled and
-                            plan.empirical_assisted then
-                            report:write("EMPIRICAL_B_PASS_ATTEMPT",true,
-                                {my_base=my_base,possession=possession,game_state=gs},
-                                "OBSERVE_EMPIRICAL_PASS",
-                                "receiver="..tostring(plan.receiver)
-                                ..";direction="..tostring(plan.direction)
-                                ..";offset="..tostring(plan.ray_offset)
-                                ..";receiver_clearance="..tostring(plan.receiver_clearance)
-                                ..";lane_clearance="..tostring(plan.lane_clearance))
-                            return true
-                        end
                         local cfg=config.DEFENSIVE_PASS_ALIGNMENT
                         local key=my_base..":"..tostring(plan.receiver)..":"..tostring(plan.direction)
                             ..":"..tostring(plan.vertical)
@@ -1653,7 +1641,7 @@ local function step_bot()
                             a=nil
                         end
                         if not a or a.key~=key then
-                            a={key=key,start=report.frame,confirmed=0}
+                            a={key=key,start=report.frame,confirmed=0,previous_pressure=nil}
                             defensive_pass_alignment=a
                             report:write("PASS_ORIENTATION_START",true,
                                 {my_base=my_base,possession=possession,game_state=gs},
@@ -1698,6 +1686,19 @@ local function step_bot()
                                 or moderate and pcfg.moderate_frames
                                 or pcfg.low_pressure_frames
                         end
+                        local recovery=config.PRESSURE_AWARE_ORIENTATION_RECOVERY
+                        local closing=a.previous_pressure and
+                            a.previous_pressure-nearest or 0
+                        a.previous_pressure=nearest
+                        local recovery_allowed=recovery and recovery.enabled
+                            and severe
+                            and (plan.direction=="Left" or plan.direction=="Up")
+                            and not plan.vertical
+                            and nearest>=recovery.min_emergency_distance
+                            and closing<=recovery.max_closing_per_frame
+                        if recovery_allowed then
+                            budget=math.max(budget,recovery.max_turn_frames)
+                        end
                         local age=report.frame-a.start
                         local facing=along>=cfg.min_forward_offset
                             and along<=cfg.max_ball_offset
@@ -1705,6 +1706,14 @@ local function step_bot()
                             and along>=across*cfg.dominance_ratio
                         a.confirmed=facing and a.confirmed+1 or 0
                         if a.confirmed>=cfg.confirm_frames then
+                            if recovery_allowed then
+                                report:write("PASS_ORIENTATION_CONFIRMED_UNDER_PRESSURE",
+                                    true,{my_base=my_base,possession=possession,game_state=gs},
+                                    "OBSERVE_FACING",
+                                    "direction="..plan.direction
+                                    ..";receiver="..tostring(plan.receiver)
+                                    ..";pressure="..nearest..";age="..age)
+                            end
                             report:write("PASS_ORIENTATION_CONFIRMED",true,
                                 {my_base=my_base,possession=possession,game_state=gs},
                                 "OBSERVE_FACING","direction="..plan.direction
@@ -1722,11 +1731,21 @@ local function step_bot()
                         else
                             movement.press_direction_button(plan.direction,nil)
                         end
-                        if severe or age>=budget then
+                        if recovery_allowed and age<budget then
+                            report:write("PASS_ORIENTATION_RETRY",true,
+                                {my_base=my_base,possession=possession,game_state=gs},
+                                "OBSERVE_FACING",
+                                "receiver="..tostring(plan.receiver)
+                                ..";direction="..plan.direction
+                                ..";pressure="..nearest
+                                ..";closing="..closing
+                                ..";age="..age..";budget="..budget)
+                        end
+                        if (severe and not recovery_allowed) or age>=budget then
                             defensive_alignment_blocks[key]=report.frame+
                                 cfg.retry_block_frames
                             defensive_pass_alignment=nil
-                            report:write(severe and "PASS_ORIENTATION_ABORT_PRESSURE"
+                            report:write((severe and not recovery_allowed) and "PASS_ORIENTATION_ABORT_CLOSING"
                                 or "PASS_ORIENTATION_TIMEOUT",true,
                                 {my_base=my_base,possession=possession,game_state=gs},
                                 "OBSERVE_FACING",
