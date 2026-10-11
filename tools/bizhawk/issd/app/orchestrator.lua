@@ -153,7 +153,7 @@ local defensive_pass_pending=nil
 local defensive_pass_sequence=0
 local defensive_alignment_blocks={}
 local bot_build_logged=false
-local BOT_BUILD_ID="corner-intercept-eta-priority-20261010-v84"
+local BOT_BUILD_ID="corner-intercept-persistent-lock-20261010-v85"
 local defensive_escape_pending=nil
 local defensive_clear_charge=nil
 local clearance_calibration_index=0
@@ -173,6 +173,7 @@ local midfield_rebuild=nil
 local second_ball_last_shots_cpu=nil
 local second_ball_lock=nil
 local first_rebound_lock=nil
+local corner_intercept_lock=nil
 local second_ball_sequence=0
 local final_third_cooldown_until=0
 local last_flight_discrepancy=false
@@ -3335,49 +3336,85 @@ local function step_bot()
             end
         end
 
-        -- Corner loose-ball commitment: same selected defender, no R switch.
-        -- Placed after goal-bound emergencies and before rebound/box pressure.
+        -- Persistent same-defender corner recovery, below goal-bound emergencies.
         if possession==0 and players.valid_my_base(my_base)
             and my_base~=config.MY_FIRST then
             local cc=config.CORNER_INTERCEPT_COMMIT
             local height=math.max(0,-mem.s16(config.AERIAL_CONTACT.height_addr))
             local px,py=players.xy(my_base)
             local corrected=field_boundary.interception_target(px,py,bx,by)
-            if cc.enabled and corrected.valid and corrected.near_corner
-                and height<=cc.max_height then
-                local dist=math.sqrt((bx-px)^2+(by-py)^2)
-                local cpu_dist=math.huge
-                players.each_cpu(function(base)
-                    if base~=config.CPU_FIRST then
-                        local ax,ay=players.xy(base)
-                        cpu_dist=math.min(cpu_dist,
-                            math.sqrt((bx-ax)^2+(by-ay)^2))
-                    end
-                end)
-                local advantage=(cpu_dist-dist)/cc.estimated_speed
-                local urgent=cpu_dist<=cc.min_cpu_emergency_distance
-                if dist<=cc.max_my_distance
-                    and advantage>=cc.min_eta_advantage and not urgent then
-                    local dx,dy=corrected.x-px,corrected.y-py
-                    movement.move_toward(dx,dy)
-                    report:write("CORNER_INTERCEPT_COMMIT",true,
+            local distance=math.sqrt((bx-px)^2+(by-py)^2)
+            local cpu_distance=math.huge
+            players.each_cpu(function(base)
+                if base~=config.CPU_FIRST then
+                    local ax,ay=players.xy(base)
+                    cpu_distance=math.min(cpu_distance,
+                        math.sqrt((bx-ax)^2+(by-ay)^2))
+                end
+            end)
+            local advantage=(cpu_distance-distance)/cc.estimated_speed
+            local lock=corner_intercept_lock
+            local reason=nil
+            if lock then
+                local age=report.frame-lock.frame
+                local drift=math.sqrt((bx-lock.bx)^2+(by-lock.by)^2)
+                if not cc.enabled then reason="DISABLED"
+                elseif my_base~=lock.base then reason="PLAYER_CHANGED"
+                elseif age>=cc.lock_frames then reason="TIMEOUT"
+                elseif drift>cc.max_ball_drift then reason="BALL_MOVED"
+                elseif height>cc.max_height then reason="BALL_TOO_HIGH"
+                elseif distance>cc.retain_max_distance then reason="TOO_FAR"
+                elseif advantage<cc.retain_eta_advantage then reason="CPU_ETA_ADVANTAGE"
+                elseif cpu_distance<=cc.min_cpu_emergency_distance then reason="CPU_CRITICAL_PROXIMITY"
+                elseif not corrected.valid then reason="INVALID_FIELD" end
+                if reason then
+                    report:write("CORNER_INTERCEPT_LOCK_END",true,
                         {possession=possession,game_state=gs,my_base=my_base},
-                        movement.last_command,
-                        "player="..my_base..";my_distance="..dist
-                        ..";cpu_distance="..cpu_dist
-                        ..";eta_advantage="..advantage
-                        ..";target_x="..corrected.x
-                        ..";target_y="..corrected.y
-                        ..";reason=ADVANTAGE_OVER_CPU")
-                    local state=make_state(my_base,dx,dy,
-                        "CORNER_INTERCEPT_COMMIT",possession,gs)
-                    state.intercept_target_x=corrected.x
-                    state.intercept_target_y=corrected.y
-                    return attach_live_state(state,"CORNER_INTERCEPT",
-                        effective_unowned_team=="CPU"
-                        and "CPU_UNOWNED_BALL" or "MY_UNOWNED_BALL")
+                        "OBSERVE_CORNER_LOCK",
+                        "reason="..reason..";age="..age
+                        ..";advantage="..advantage
+                        ..";distance="..distance)
+                    corner_intercept_lock=nil
+                    lock=nil
                 end
             end
+            if cc.enabled and corrected.valid and height<=cc.max_height
+                and cpu_distance>cc.min_cpu_emergency_distance
+                and ((lock~=nil) or (corrected.near_corner
+                    and distance<=cc.max_my_distance
+                    and advantage>=cc.min_eta_advantage)) then
+                if not lock then
+                    corner_intercept_lock={frame=report.frame,base=my_base,
+                        bx=bx,by=by}
+                    report:write("CORNER_INTERCEPT_LOCK_START",true,
+                        {possession=possession,game_state=gs,my_base=my_base},
+                        "OBSERVE_CORNER_LOCK",
+                        "player="..my_base..";advantage="..advantage)
+                end
+                local dx,dy=corrected.x-px,corrected.y-py
+                movement.move_toward(dx,dy)
+                report:write("CORNER_INTERCEPT_COMMIT",true,
+                    {possession=possession,game_state=gs,my_base=my_base},
+                    movement.last_command,
+                    "player="..my_base..";my_distance="..distance
+                    ..";cpu_distance="..cpu_distance
+                    ..";eta_advantage="..advantage
+                    ..";target_x="..corrected.x
+                    ..";target_y="..corrected.y
+                    ..";reason="..(lock and "LOCK_RETAINED" or "ADVANTAGE_OVER_CPU"))
+                local state=make_state(my_base,dx,dy,
+                    "CORNER_INTERCEPT_COMMIT",possession,gs)
+                state.intercept_target_x=corrected.x
+                state.intercept_target_y=corrected.y
+                return attach_live_state(state,"CORNER_INTERCEPT",
+                    effective_unowned_team=="CPU"
+                    and "CPU_UNOWNED_BALL" or "MY_UNOWNED_BALL")
+            end
+        elseif corner_intercept_lock then
+            report:write("CORNER_INTERCEPT_LOCK_END",true,
+                {possession=possession,game_state=gs,my_base=my_base},
+                "OBSERVE_CORNER_LOCK","reason=POSSESSION_OR_PLAYER_CHANGED")
+            corner_intercept_lock=nil
         end
 
         -- First loose rebound: reach the ball before pressuring its likely
