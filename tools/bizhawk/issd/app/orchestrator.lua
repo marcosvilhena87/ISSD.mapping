@@ -153,7 +153,7 @@ local defensive_pass_pending=nil
 local defensive_pass_sequence=0
 local defensive_alignment_blocks={}
 local bot_build_logged=false
-local BOT_BUILD_ID="corner-intercept-persistent-lock-20261010-v85"
+local BOT_BUILD_ID="corner-close-range-audit-20261010-v86"
 local defensive_escape_pending=nil
 local defensive_clear_charge=nil
 local clearance_calibration_index=0
@@ -460,6 +460,7 @@ end
 local pass_window_tracker = dofile(DIR .. "../state/pass_window_tracker.lua").new(config,players)
 local reception_feasibility = dofile(DIR .. "../state/pass_reception_feasibility_observer.lua").new(config,players)
 local telemetry_controller = dofile(DIR .. "telemetry_controller.lua").new({
+    close_intercept=dofile(DIR .. "../state/close_range_intercept_observer.lua").new(config,players),
     reception_feasibility=reception_feasibility,
     pass_calibration=dofile(DIR .. "../state/defensive_pass_calibration.lua").new(config,players), 
     opportunity_tracker=pass_window_tracker,
@@ -3393,6 +3394,8 @@ local function step_bot()
                 end
                 local dx,dy=corrected.x-px,corrected.y-py
                 movement.move_toward(dx,dy)
+                telemetry_controller.observe_corner_close_range(report.frame,my_base,
+                    bx,by,px,py,movement.last_command,gs)
                 report:write("CORNER_INTERCEPT_COMMIT",true,
                     {possession=possession,game_state=gs,my_base=my_base},
                     movement.last_command,
