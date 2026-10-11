@@ -1669,20 +1669,6 @@ local function step_bot()
                                 or pcfg.low_pressure_frames
                         end
                         local age=report.frame-a.start
-                        if severe or age>=budget then
-                            defensive_alignment_blocks[key]=report.frame+
-                                cfg.retry_block_frames
-                            defensive_pass_alignment=nil
-                            report:write(severe and "PASS_ORIENTATION_ABORT_PRESSURE"
-                                or "PASS_ORIENTATION_TIMEOUT",true,
-                                {my_base=my_base,possession=possession,game_state=gs},
-                                "OBSERVE_FACING",
-                                "direction="..tostring(plan.direction)
-                                ..";receiver="..tostring(plan.receiver)
-                                ..";pressure="..tostring(nearest)
-                                ..";age="..age..";budget="..budget)
-                            return false
-                        end
                         local facing=along>=cfg.min_forward_offset
                             and along<=cfg.max_ball_offset
                             and across<=cfg.max_lateral_offset
@@ -1705,6 +1691,20 @@ local function step_bot()
                             movement.press_diagonal_button(plan.direction,plan.vertical,nil)
                         else
                             movement.press_direction_button(plan.direction,nil)
+                        end
+                        if severe or age>=budget then
+                            defensive_alignment_blocks[key]=report.frame+
+                                cfg.retry_block_frames
+                            defensive_pass_alignment=nil
+                            report:write(severe and "PASS_ORIENTATION_ABORT_PRESSURE"
+                                or "PASS_ORIENTATION_TIMEOUT",true,
+                                {my_base=my_base,possession=possession,game_state=gs},
+                                "OBSERVE_FACING",
+                                "direction="..tostring(plan.direction)
+                                ..";receiver="..tostring(plan.receiver)
+                                ..";pressure="..tostring(nearest)
+                                ..";age="..age..";budget="..budget)
+                            return false
                         end
                         local state=make_state(my_base,0,0,
                             "DEFENSIVE_PASS_ALIGN",possession,gs)
