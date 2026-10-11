@@ -42,6 +42,23 @@ function M.new(config,players,field_side,mem)
      return lane>=cfg.min_lane_clearance
         and cpu_landing-my_landing>=cfg.min_cpu_arrival_margin
     end
+    -- Ball offset is only a facing proxy; ranking never overrides safety.
+    local function facing_adjustment(px,py,rx,ry,dst)
+        local cfg=config.PASS_FACING_PREFERENCE
+        if not cfg or not cfg.enabled then return 0,"DISABLED" end
+        local ox=mem.s16(config.ADDR.ball_x)-px
+        local oy=mem.s16(config.ADDR.ball_y)-py
+        local length=math.sqrt(ox*ox+oy*oy)
+        if length<cfg.min_ball_offset or length>cfg.max_ball_offset
+            or dst<1 then return 0,"UNKNOWN" end
+        local cosine=(ox*(rx-px)+oy*(ry-py))/(length*dst)
+        if cosine>=cfg.front_cosine then return cfg.front_bonus,"FRONT" end
+        if cosine<=cfg.back_cosine then
+            if dst<=cfg.short_backward_distance then return 0,"BACK_SHORT" end
+            return -cfg.long_back_penalty,"BACK_LONG"
+        end
+        return 0,"SIDE"
+    end
     function obj.tick()
         if obj.cooldown>0 then obj.cooldown=obj.cooldown-1 end
     end
@@ -141,7 +158,7 @@ function M.new(config,players,field_side,mem)
                                 button=c.button,intent="SHORT_DIAGONAL",
                                 score=math.min(receiver_space,180)*c.weight_clearance
                                     +math.min(lane,180)*c.weight_lane
-                                    +forward*c.weight_progress-d*0.12}
+                                    +forward*c.weight_progress-d*0.12+select(1,facing_adjustment(px,py,rx,ry,d))}
                             if not best_diagonal
                                 or candidate.score>best_diagonal.score then
                                 best_diagonal=candidate
@@ -265,7 +282,7 @@ function M.new(config,players,field_side,mem)
                                     ray_offset=off,arrival_margin=margin,
                                     score=forward*c.weight_progress
                                         +receiver_space*c.weight_clearance
-                                        +corridor*c.weight_lane-off*1.5}
+                                        +corridor*c.weight_lane-off*1.5+select(1,facing_adjustment(px,py,rx,ry,d))}
                                 if not best_eight_way or candidate.score>best_eight_way.score then
                                     best_eight_way=candidate
                                 end
@@ -398,8 +415,13 @@ function M.new(config,players,field_side,mem)
                                 priority.max_forward_bonus)*priority.forward_bonus
                             score=score+progress_bonus
                         end
+                        local facing_bonus,facing_class=
+                            facing_adjustment(px,py,rx,ry,d)
+                        score=score+facing_bonus
                         if not best or score>best.score then
-                            best={receiver=base,distance=d,forward=forward,
+                            best={facing_class=facing_class,
+                                facing_adjustment=facing_bonus,
+                                receiver=base,distance=d,forward=forward,
                                 lateral=lateral,receiver_clearance=receiver_clearance,
                                 lane_clearance=corridor,score=score,
                                 progress_bonus=progress_bonus,
