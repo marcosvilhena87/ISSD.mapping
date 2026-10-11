@@ -3211,7 +3211,59 @@ local function step_bot()
                         if d<nearest_my then nearest_my=d;nearest_base=base end
                     end
                 end)
-                if rc.enabled and nearest_base==my_base
+                -- Estimate race to a short future ground-ball location.
+                -- Current distance to the kicker is not evidence of reception.
+                local speed=math.sqrt(possession_context.ball_dx^2
+                    +possession_context.ball_dy^2)
+                local predictive=rc.enabled and rc.predictive_enabled
+                    and possession==0 and h<=rc.max_ground_height
+                    and speed<=rc.max_ball_speed
+                    and goal_dist>config.DEFENSIVE_HEADER.goal_radius
+                local tx,ty=bx,by
+                if predictive and speed>0 then
+                    local lead=math.min(rc.lead_frames,
+                        rc.max_lead_distance/speed)
+                    tx=bx+possession_context.ball_dx*lead
+                    ty=by+possession_context.ball_dy*lead
+                    local corrected=field_boundary.correct(px,py,tx,ty)
+                    tx,ty=corrected.x,corrected.y
+                end
+                local selected_dist=math.sqrt((tx-px)^2+(ty-py)^2)
+                local projected_cpu=math.huge
+                if predictive then
+                    players.each_cpu(function(base)
+                        if base~=config.CPU_FIRST then
+                            local cx,cy=players.xy(base)
+                            projected_cpu=math.min(projected_cpu,
+                                math.sqrt((tx-cx)^2+(ty-cy)^2))
+                        end
+                    end)
+                end
+                local selected_eta=selected_dist/rc.assumed_my_speed
+                local cpu_eta=projected_cpu/rc.assumed_cpu_speed
+                local eta_advantage=cpu_eta-selected_eta
+                if predictive and selected_dist>lc.contact_distance
+                    and selected_dist<=rc.max_selected_distance
+                    and eta_advantage>=rc.min_eta_advantage then
+                    local dx,dy=tx-px,ty-py
+                    movement.move_toward(dx,dy)
+                    local state=make_state(my_base,dx,dy,
+                        "DEF_CLEAR_SECOND_BALL_APPROACH",possession,gs)
+                    state.live_target_x=tx
+                    state.live_target_y=ty
+                    report:write("DEF_CLEAR_SECOND_BALL_ETA",true,state,
+                        movement.last_command,
+                        "sequence="..lock.clearance_sequence
+                        ..";target_x="..tx..";target_y="..ty
+                        ..";selected_eta="..selected_eta
+                        ..";cpu_eta="..cpu_eta
+                        ..";advantage="..eta_advantage
+                        ..";height="..h..";speed="..speed)
+                    return attach_live_state(state,"DEF_CLEAR_SECOND_BALL",
+                        "MY_UNOWNED_BALL")
+                end
+                if rc.enabled and not rc.predictive_enabled
+                    and nearest_base==my_base
                     and dist>lc.contact_distance
                     and dist<=rc.approach_distance
                     and nearest_cpu-dist>=rc.min_cpu_margin
