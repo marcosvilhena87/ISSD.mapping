@@ -153,7 +153,7 @@ local defensive_pass_pending=nil
 local defensive_pass_sequence=0
 local defensive_alignment_blocks={}
 local bot_build_logged=false
-local BOT_BUILD_ID="corner-close-range-audit-20261010-v86"
+local BOT_BUILD_ID="all-bot-close-range-audit-20261010-v87"
 local defensive_escape_pending=nil
 local defensive_clear_charge=nil
 local clearance_calibration_index=0
@@ -3394,8 +3394,6 @@ local function step_bot()
                 end
                 local dx,dy=corrected.x-px,corrected.y-py
                 movement.move_toward(dx,dy)
-                telemetry_controller.observe_corner_close_range(report.frame,my_base,
-                    bx,by,px,py,movement.last_command,gs)
                 report:write("CORNER_INTERCEPT_COMMIT",true,
                     {possession=possession,game_state=gs,my_base=my_base},
                     movement.last_command,
@@ -4643,6 +4641,18 @@ while true do
                 ..";source="..tostring(state.team_possession_kind_source))
         end
         team_possession_conflict_active=not not state.team_possession_conflict
+        -- Monitor every selected bot outfielder, across tactical states.
+        -- Historical samples are separated by player in the observer.
+        local observed_base=state.my_base
+        if players.valid_my_base(observed_base)
+            and observed_base~=config.MY_FIRST
+            and state.game_state==0 and state.possession==0 then
+            local observed_x,observed_y=players.xy(observed_base)
+            telemetry_controller.observe_corner_close_range(
+                report.frame,observed_base,state.ball_x,state.ball_y,
+                observed_x,observed_y,state.controller_command,
+                state.game_state,state.possession)
+        end
         telemetry_controller.observe_pass_window_outcome(state)
         report:observe(true, state)
         -- Outcome monitoring only after an actual GK button pulse.
