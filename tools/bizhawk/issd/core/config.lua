@@ -438,7 +438,7 @@ M.RECEIVER_AWARE_DEF_CLEARANCE = {
 }
 
 -- Tentative charge/range mapping; tune from DEF_CLEAR_OUTCOME.
--- Emergency A stays fixed at 3 frames.
+-- Receiver-targeted selection is bounded by the urgent pressure budget.
 M.DEFENSIVE_CLEAR_LANDING_RISK = {
     enabled=true,
     ranges={{frames=3,travel=120},{frames=5,travel=175},
