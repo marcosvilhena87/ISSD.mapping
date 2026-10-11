@@ -1,8 +1,8 @@
 -- Passive close-range corner interception telemetry, no control changes.
 local M={}
 function M.new(config,players)
- local o={last=nil}
- function o.observe(frame,base,bx,by,px,py,command)
+ local o={last_by_player={}}
+ function o.observe(frame,base,bx,by,px,py,command,owner)
   local dx,dy=bx-px,by-py
   local dist=math.sqrt(dx*dx+dy*dy)
   local nearest=nil;local cpu_dist=math.huge
@@ -13,19 +13,21 @@ function M.new(config,players)
     if d<cpu_dist then cpu_dist=d;nearest=cpu end
    end
   end)
-  local old=o.last
+  local old=o.last_by_player[base]
   local my_delta=nil;local cpu_delta=nil;local ball_delta=nil
   if old and old.base==base and frame-old.frame==1 then
    my_delta=old.distance-dist
    cpu_delta=old.cpu_distance-cpu_dist
    ball_delta=math.sqrt((bx-old.bx)^2+(by-old.by)^2)
   end
-  o.last={base=base,frame=frame,distance=dist,cpu_distance=cpu_dist,bx=bx,by=by}
+  o.last_by_player[base]={base=base,frame=frame,distance=dist,cpu_distance=cpu_dist,bx=bx,by=by}
   if dist>30 then return nil end
   return {kind="CORNER_CLOSE_RANGE_INTERCEPT",player=base,frame=frame,
    distance=dist,cpu_distance=cpu_dist,cpu=nearest,
    my_closing=my_delta,cpu_closing=cpu_delta,ball_delta=ball_delta,
-   command=command,dx=dx,dy=dy}
+   command=command,dx=dx,dy=dy,owner=owner,
+   first_owner=owner~=0 and (players.valid_my_base(owner) and "MY" or
+     players.valid_cpu_base(owner) and "CPU" or "UNKNOWN") or "NONE"}
  end
  return o
 end
