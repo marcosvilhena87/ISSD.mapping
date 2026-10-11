@@ -2185,6 +2185,86 @@ local function step_bot()
                         -- A is an untargeted clearance. Score its cardinal
                         -- launch directions by likely landing-zone ownership.
                         -- Under extreme pressure retain immediate release.
+                        -- Diagnostic at the actual A decision: identify nearby
+                        -- Up/Left B outlets and why a safe executable pass
+                        -- was not selected. This observer never overrides A.
+                        if exit.button=="A" then
+                            local px0,py0=players.xy(my_base)
+                            local support_cfg=config.DEFENSIVE_ALL_DIRECTION_SUPPORT
+                            for _,ray in ipairs({
+                                {name="Up",ux=0,uy=-1},
+                                {name="Left",ux=-1,uy=0}
+                            }) do
+                                local candidate=nil
+                                local best_offset=math.huge
+                                local nearest_dist=math.huge
+                                local nearest_lane=math.huge
+                                local nearest_rc=math.huge
+                                local reason="NO_RECEIVER"
+                                players.each_my(function(base)
+                                    if base~=my_base and base~=config.MY_FIRST then
+                                        local rx,ry=players.xy(base)
+                                        local along=(rx-px0)*ray.ux+
+                                            (ry-py0)*ray.uy
+                                        local offset=math.abs((rx-px0)*ray.uy-
+                                            (ry-py0)*ray.ux)
+                                        if along>=support_cfg.min_distance
+                                            and along<=support_cfg.max_distance
+                                            and offset<best_offset then
+                                            candidate=base
+                                            best_offset=offset
+                                            nearest_dist=along
+                                        end
+                                    end
+                                end)
+                                if candidate then
+                                    local rx,ry=players.xy(candidate)
+                                    local lx=px0+ray.ux*nearest_dist
+                                    local ly=py0+ray.uy*nearest_dist
+                                    local cpu_arrival=math.huge
+                                    players.each_cpu(function(base)
+                                        if base~=config.CPU_FIRST then
+                                            local ex,ey=players.xy(base)
+                                            nearest_rc=math.min(nearest_rc,
+                                                math.sqrt((rx-ex)^2+(ry-ey)^2))
+                                            local progress=(ex-px0)*ray.ux+
+                                                (ey-py0)*ray.uy
+                                            if progress>=0 and progress<=nearest_dist then
+                                                nearest_lane=math.min(nearest_lane,
+                                                    math.abs((ex-px0)*ray.uy-
+                                                        (ey-py0)*ray.ux))
+                                            end
+                                            cpu_arrival=math.min(cpu_arrival,
+                                                math.sqrt((ex-lx)^2+(ey-ly)^2))
+                                        end
+                                    end)
+                                    if best_offset>support_cfg.max_ray_offset then
+                                        reason="RAY_OFFSET"
+                                    elseif nearest_rc<support_cfg.min_receiver_clearance then
+                                        reason="RECEIVER_PRESSURE"
+                                    elseif nearest_lane<support_cfg.min_lane_clearance then
+                                        reason="LANE_BLOCKED"
+                                    elseif cpu_arrival-best_offset<
+                                        support_cfg.min_arrival_margin then
+                                        reason="ARRIVAL_MARGIN"
+                                    else reason="PASS_PLAUSIBLE_RECHECK_PIPELINE"
+                                    end
+                                end
+                                report:write("DEF_PASS_VS_CLEAR_DECISION",true,
+                                    {my_base=my_base,possession=possession,game_state=gs},
+                                    "OBSERVE_A_FALLBACK",
+                                    "ray="..ray.name
+                                    ..";reason="..reason
+                                    ..";candidate="..tostring(candidate)
+                                    ..";offset="..tostring(best_offset)
+                                    ..";distance="..tostring(nearest_dist)
+                                    ..";receiver_clearance="..tostring(nearest_rc)
+                                    ..";lane_clearance="..tostring(nearest_lane)
+                                    ..";outlet="..tostring(outlet and outlet.receiver)
+                                    ..";all_support_reason="..tostring(all_reason)
+                                    ..";exit_threat="..tostring(exit.threat))
+                            end
+                        end
                         local receiver_cfg=config.RECEIVER_AWARE_DEF_CLEARANCE
                         local best_clear=nil
                         if exit.button=="A" and receiver_cfg.enabled
