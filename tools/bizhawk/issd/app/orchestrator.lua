@@ -261,6 +261,11 @@ local function defensive_dash_step(state)
         end
     end
     local approach_threshold=cfg.start_distance
+    -- Exposed goal corridor: accelerate toward the blocking point earlier.
+    -- Keep the normal cooldown, finite burst and action-button priority.
+    if active and state.status=="PRE_SHOT_DEFENSIVE_COVER" then
+        approach_threshold=cfg.recovery_start_distance
+    end
     if active and (state.status=="MY_UNOWNED_RECOVERY"
         or state.status=="MY_UNOWNED_RECOVERY_LOCK"
         or state.status=="BALL_CONTEST_INTERCEPT"
