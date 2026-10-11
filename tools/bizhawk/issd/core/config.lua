@@ -492,6 +492,18 @@ M.EMPIRICAL_DEFENSIVE_B_PASS = {
     min_arrival_margin=85,
 }
 
+-- Rank progressive B outlets ahead of similarly safe lateral/recycling
+-- options, without relaxing existing pass feasibility or safety gates.
+M.DEFENSIVE_PROGRESSIVE_PASS_PRIORITY = {
+    enabled=true,
+    min_forward=25,
+    max_reward_distance=180,
+    bonus_per_unit=0.32,
+    min_receiver_clearance=110,
+    min_lane_clearance=85,
+    min_arrival_margin=65,
+}
+
 M.DEFENSIVE_ALL_DIRECTION_SUPPORT = {
     enabled=true,
     min_distance=40,

@@ -835,6 +835,18 @@ function M.new(config,players,field_side,mem)
                                     -offset*1.3+continuity
                                     +select(1,facing_adjustment(px,py,rx,ry,dst))
                                     -(gk and cfg.gk_risk_penalty or 0)
+                                local priority=config.DEFENSIVE_PROGRESSIVE_PASS_PRIORITY
+                                local progressive_bonus=0
+                                if priority and priority.enabled and not gk
+                                    and forward>=priority.min_forward
+                                    and rc>=priority.min_receiver_clearance
+                                    and lane>=priority.min_lane_clearance
+                                    and margin>=priority.min_arrival_margin then
+                                    progressive_bonus=math.min(
+                                        forward,priority.max_reward_distance)
+                                        *priority.bonus_per_unit
+                                    score=score+progressive_bonus
+                                end
                                 local destination_corridor=tactical_corridor(ry)
                                 local change_corridor=source_corridor
                                     and destination_corridor
@@ -860,6 +872,7 @@ function M.new(config,players,field_side,mem)
                                         arrival_margin=margin,ray_offset=offset,
                                         empirical_assisted=not not
                                             (empirical_cardinal and offset>cfg.max_ray_offset),
+                                        progressive_bonus=progressive_bonus,
                                         continuity_bonus=continuity,
                                         source_corridor=source_corridor,
                                         destination_corridor=destination_corridor,
