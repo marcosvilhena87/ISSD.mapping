@@ -275,6 +275,20 @@ M.FIVE_DIRECTION_PASS_OBSERVER = {
     safe_command_receiver=55,
 }
 
+-- Experimental frame/unit rates; calibrate from observed passes before acting.
+M.PASS_RECEPTION_FEASIBILITY = {
+    samples=12,
+    max_throw_distance=320,
+    min_throw_distance=18,
+    reception_lead=48,
+    assumed_ball_speed=12,
+    assumed_my_speed=6,
+    assumed_cpu_speed=6,
+    arrival_grace=4,
+    safe_eta_margin=6,
+    contested_eta_margin=3,
+}
+
 M.DEFENSIVE_EXIT = {
     lateral_min=65, lateral_max=190, max_horizontal=30,
     max_pass_distance=210, receiver_clearance=80,
