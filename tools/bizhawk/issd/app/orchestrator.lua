@@ -438,7 +438,10 @@ local function observe_my_possession_loss(possession,gs,my_base,gameplay_value,l
             ..";end_x="..tostring(loss_ev.end_x)
             ..";end_y="..tostring(loss_ev.end_y)
             ..";confirmation_frames="..tostring(loss_ev.confirmation_frames)
-            ..";reason="..tostring(loss_ev.reason))
+            ..";reason="..tostring(loss_ev.reason)
+            ..";action="..tostring(loss_ev.action)
+            ..";intent="..tostring(loss_ev.intent)
+            ..";outcome_class="..tostring(loss_ev.outcome_class))
     end
 end
 
@@ -2211,6 +2214,8 @@ local function step_bot()
                         my_base, 0, 0, "ATTACK_SHOOT", possession, gs
                     )
                     state.shot_reason = shoot_diag and shoot_diag.reason
+                    my_possession_loss_tracker.record_action(
+                        report.frame,my_base,"X","SHOT")
                     state.shot_fired = true
                     state.shot_variant = shot.variant
                     state.shot_button = shot.button
@@ -2247,6 +2252,8 @@ local function step_bot()
                         ..";arrival_margin="..tostring(pass.arrival_margin))
                 end
                 if pass and forward_pass.fire(pass,movement) then
+                    my_possession_loss_tracker.record_action(
+                        report.frame,my_base,"B",tostring(pass.intent))
                     if pass.intent=="FINAL_THIRD_PRESSURE_SUPPORT" then
                         report:write("FINAL_THIRD_SUPPORT_PASS_SENT",true,
                             {my_base=my_base,possession=possession,game_state=gs},
