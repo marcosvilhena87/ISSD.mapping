@@ -262,6 +262,16 @@ M.PASS_FACING_PREFERENCE = {
     short_backward_distance=65,
 }
 
+-- Timed orientation policy; under critical pressure do not wait to turn.
+M.PRESSURE_AWARE_PASS_ORIENTATION = {
+    enabled=true,
+    critical_radius=38,
+    moderate_radius=95,
+    critical_frames=0,
+    moderate_frames=6,
+    low_pressure_frames=12,
+}
+
 M.DEFENSIVE_PASS_ALIGNMENT = {
     confirm_frames=2, -- consecutive observations of ball ahead
     min_forward_offset=3, max_ball_offset=45,
