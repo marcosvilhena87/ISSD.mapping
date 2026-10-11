@@ -47,6 +47,24 @@ function M.new(config,players)
   local along=vx and (travel_x*vx+travel_y*vy) or nil
   local cross=vx and math.abs(travel_x*vy-travel_y*vx) or nil
   if cross then a.max_offset=math.max(a.max_offset,cross) end
+  -- Compare the actual flight against the nominal Right+B ray.
+  -- A moving ball plus ownership departure is required for evidence.
+  if p.direction=="Right" and not p.vertical and a.physical_release then
+   local signed_cross=travel_y
+   local angular_deviation=math.deg(math.atan2(
+    math.abs(signed_cross),math.max(0,travel_x)))
+   local sample=(age==1 or age==3 or age==6 or age==12)
+   if sample or outcome then
+    events[#events+1]={kind=outcome and "RIGHT_B_FLIGHT_OUTCOME"
+      or "RIGHT_B_FLIGHT_CALIBRATION",
+     sequence=p.sequence,age=age,receiver=p.receiver,
+     mode=p.intent,direction=p.direction,
+     along=travel_x,cross=signed_cross,
+     angle=angular_deviation,travel=displacement,
+     owner=owner,outcome=outcome,
+     release_confirmed=true}
+   end
+  end
   if (age==1 or age==3 or age==6 or age==12) and not outcome then
    events[#events+1]={kind="DEF_PASS_FLIGHT_SAMPLE",sequence=p.sequence,
     age=age,owner=owner,speed=speed,travel=a.travel,along=along,
