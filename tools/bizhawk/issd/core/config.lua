@@ -287,7 +287,7 @@ M.DEFENSIVE_CLEARANCE_EXECUTION_VALIDATION = {
     enabled=true,
     confirm_frames=18,
     min_ball_travel=18,
-    retry_block_frames=75,
+    retry_block_frames=180, -- prevent the 80-frame repeated-clearance loop
     emergency_threat=25,
 }
 M.CHARGED_DEFENSIVE_CLEARANCE = {
