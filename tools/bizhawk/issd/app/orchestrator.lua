@@ -1625,7 +1625,7 @@ local function step_bot()
                         if not a or a.key~=key then
                             a={key=key,start=report.frame,confirmed=0}
                             defensive_pass_alignment=a
-                            report:write("DEFENSIVE_PASS_ALIGN_START",true,
+                            report:write("PASS_ORIENTATION_START",true,
                                 {my_base=my_base,possession=possession,game_state=gs},
                                 "OBSERVE_FACING","receiver="..tostring(plan.receiver)
                                 ..";direction="..tostring(plan.direction))
@@ -1649,13 +1649,33 @@ local function step_bot()
                             along=(dx*sx+dy*sy)/math.sqrt(2)
                             across=math.abs(dx*sx-dy*sy)/math.sqrt(2)
                         end
+                        -- Pressure governs how long we may turn before B.
+                        -- Re-evaluate every frame; no unsafe forced pass.
+                        local pcfg=config.PRESSURE_AWARE_PASS_ORIENTATION
+                        local nearest=math.huge
+                        players.each_cpu(function(cpu)
+                            if cpu~=config.CPU_FIRST then
+                                local ex,ey=players.xy(cpu)
+                                local dd=math.sqrt((ex-px)^2+(ey-py)^2)
+                                nearest=math.min(nearest,dd)
+                            end
+                        end)
+                        local severe=pcfg.enabled and nearest<=pcfg.critical_radius
+                        local moderate=pcfg.enabled and nearest<=pcfg.moderate_radius
+                        local budget=cfg.max_window_frames
+                        if pcfg.enabled then
+                            budget=severe and pcfg.critical_frames
+                                or moderate and pcfg.moderate_frames
+                                or pcfg.low_pressure_frames
+                        end
+                        local age=report.frame-a.start
                         local facing=along>=cfg.min_forward_offset
                             and along<=cfg.max_ball_offset
                             and across<=cfg.max_lateral_offset
                             and along>=across*cfg.dominance_ratio
                         a.confirmed=facing and a.confirmed+1 or 0
                         if a.confirmed>=cfg.confirm_frames then
-                            report:write("PASS_FACING_CONFIRMED",true,
+                            report:write("PASS_ORIENTATION_CONFIRMED",true,
                                 {my_base=my_base,possession=possession,game_state=gs},
                                 "OBSERVE_FACING","direction="..plan.direction
                                 ..";dx="..dx..";dy="..dy
@@ -1663,20 +1683,28 @@ local function step_bot()
                             defensive_pass_alignment=nil
                             return true
                         end
-                        local age=report.frame-a.start
-                        if age>=cfg.max_window_frames then
-                            a.blocked_until=report.frame+cfg.retry_block_frames
-                            defensive_alignment_blocks[key]=a.blocked_until
-                            report:write("PASS_FACING_ABORT",true,
-                                {my_base=my_base,possession=possession,game_state=gs},
-                                "OBSERVE_FACING","direction="..plan.direction
-                                ..";dx="..dx..";dy="..dy..";age="..age)
-                            return false
-                        end
-                        if (plan.intent=="SHORT_DIAGONAL" or plan.intent=="EIGHT_WAY_DIAGONAL") then
+
+                        if plan.vertical and (plan.intent=="SHORT_DIAGONAL"
+                            or plan.intent=="EIGHT_WAY_DIAGONAL"
+                            or plan.intent=="DEFENSIVE_SUPPORT_8WAY"
+                            or plan.intent=="DEFENSIVE_GK_SUPPORT_8WAY") then
                             movement.press_diagonal_button(plan.direction,plan.vertical,nil)
                         else
                             movement.press_direction_button(plan.direction,nil)
+                        end
+                        if severe or age>=budget then
+                            defensive_alignment_blocks[key]=report.frame+
+                                cfg.retry_block_frames
+                            defensive_pass_alignment=nil
+                            report:write(severe and "PASS_ORIENTATION_ABORT_PRESSURE"
+                                or "PASS_ORIENTATION_TIMEOUT",true,
+                                {my_base=my_base,possession=possession,game_state=gs},
+                                "OBSERVE_FACING",
+                                "direction="..tostring(plan.direction)
+                                ..";receiver="..tostring(plan.receiver)
+                                ..";pressure="..tostring(nearest)
+                                ..";age="..age..";budget="..budget)
+                            return false
                         end
                         local state=make_state(my_base,0,0,
                             "DEFENSIVE_PASS_ALIGN",possession,gs)
@@ -1844,6 +1872,11 @@ local function step_bot()
                         outlet_ready=waiting==true
                     end
                     if outlet_ready and forward_pass.fire(outlet,movement) then
+                        report:write("PASS_ORIENTATION_RELEASE",true,
+                            {my_base=my_base,possession=possession,game_state=gs},
+                            movement.last_command,
+                            "receiver="..tostring(outlet.receiver)
+                            ..";direction="..tostring(outlet.direction))
                         if outlet.intent=="DEFENSIVE_SUPPORT" then
                             report:write("DEFENSIVE_SUPPORT_PASS_SENT",true,
                                 {possession=possession,game_state=gs,my_base=my_base},
