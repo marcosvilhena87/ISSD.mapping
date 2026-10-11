@@ -715,6 +715,14 @@ function M.new(config,players,field_side,mem)
     end
     -- Intermediate defensive outlets in all eight executable B rays.
     -- The goalkeeper is evaluated as a feet-to-feet receiver only.
+    local function tactical_corridor(y)
+        local width=mem.u16(config.ADDR.field_width)
+        local center=mem.u16(config.ADDR.center_field_y)
+        if width<200 or width>2000 then return nil end
+        local u=(y-center+width/2)/width
+        if u<0 or u>1 then return nil end
+        return u<1/3 and 1 or (u<=2/3 and 2 or 3)
+    end
     function obj.defensive_all_direction_plan(carrier)
         local cfg=config.DEFENSIVE_ALL_DIRECTION_SUPPORT
         if not cfg or not cfg.enabled or obj.cooldown>0
@@ -724,6 +732,16 @@ function M.new(config,players,field_side,mem)
         if attack~=1 and attack~=-1 then return nil,"NO_DIRECTION" end
         local px,py=players.xy(carrier)
         if zone_for(px,attack)~=1 then return nil,"NOT_DEFENSIVE_THIRD" end
+        local escape=config.DEFENSIVE_CORRIDOR_ESCAPE
+        local source_corridor=tactical_corridor(py)
+        local carrier_pressure=math.huge
+        players.each_cpu(function(cpu)
+            if cpu~=config.CPU_FIRST then
+                local ex,ey=players.xy(cpu)
+                carrier_pressure=math.min(carrier_pressure,
+                    distance(px,py,ex,ey))
+            end
+        end)
         local dirs={{1,0,"Right",nil},{-1,0,"Left",nil},
             {0,1,"Down",nil},{0,-1,"Up",nil},
             {1,1,"Right","Down"},{1,-1,"Right","Up"},
@@ -785,6 +803,20 @@ function M.new(config,players,field_side,mem)
                                     -offset*1.3+continuity
                                     +select(1,facing_adjustment(px,py,rx,ry,dst))
                                     -(gk and cfg.gk_risk_penalty or 0)
+                                local destination_corridor=tactical_corridor(ry)
+                                local change_corridor=source_corridor
+                                    and destination_corridor
+                                    and source_corridor~=destination_corridor
+                                if escape and escape.enabled and not gk
+                                    and change_corridor
+                                    and carrier_pressure<=escape.pressure_radius
+                                    and rc>=escape.min_receiver_clearance
+                                    and lane>=escape.min_lane_clearance
+                                    and margin>=escape.min_arrival_margin then
+                                    -- Ranking only: original executable-ray
+                                    -- and arrival-safety gates remain intact.
+                                    score=score+escape.change_bonus
+                                end
                                 if not best or score>best.score then
                                     best={carrier=carrier,receiver=receiver,zone=1,
                                         intent=gk and "DEFENSIVE_GK_SUPPORT_8WAY"
@@ -795,6 +827,10 @@ function M.new(config,players,field_side,mem)
                                         receiver_clearance=rc,lane_clearance=lane,
                                         arrival_margin=margin,ray_offset=offset,
                                         continuity_bonus=continuity,
+                                        source_corridor=source_corridor,
+                                        destination_corridor=destination_corridor,
+                                        corridor_changed=not not change_corridor,
+                                        carrier_pressure=carrier_pressure,
                                         score=score}
                                 end
                             end
