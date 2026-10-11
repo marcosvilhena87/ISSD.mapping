@@ -2081,6 +2081,59 @@ local function step_bot()
                             return attach_live_state(state,"DEFENSIVE_TRANSITION",
                                 "MY_CONTROLLED")
                         end
+                        -- A is an untargeted clearance. Score its cardinal
+                        -- launch directions by likely landing-zone ownership.
+                        -- Under extreme pressure retain immediate release.
+                        local receiver_cfg=config.RECEIVER_AWARE_DEF_CLEARANCE
+                        local best_clear=nil
+                        if exit.button=="A" and receiver_cfg.enabled
+                            and (exit.direction=="Left" or exit.direction=="Right")
+                            and exit.threat and exit.threat>receiver_cfg.emergency_radius then
+                            local px,py=players.xy(my_base)
+                            local attack_dir=field_side.attack_direction()
+                            for _,direction in ipairs({"Left","Right"}) do
+                                local sign=direction=="Right" and 1 or -1
+                                local tx=px+sign*receiver_cfg.projected_travel
+                                local best_my,best_cpu=math.huge,math.huge
+                                local receiver=nil
+                                players.each_my(function(base)
+                                    if base~=my_base and base~=config.MY_FIRST then
+                                        local rx,ry=players.xy(base)
+                                        local dist=math.sqrt((tx-rx)^2+(py-ry)^2)
+                                        if dist<best_my then best_my,receiver=dist,base end
+                                    end
+                                end)
+                                players.each_cpu(function(base)
+                                    local rx,ry=players.xy(base)
+                                    local dist=math.sqrt((tx-rx)^2+(py-ry)^2)
+                                    best_cpu=math.min(best_cpu,dist)
+                                end)
+                                local margin=best_cpu-best_my
+                                local forward=sign*attack_dir
+                                if best_my<=receiver_cfg.max_receiver_distance
+                                    and margin>=receiver_cfg.min_arrival_advantage
+                                    and (forward>0 or receiver_cfg.allow_backward) then
+                                    local score=margin-best_my*0.25
+                                        +forward*receiver_cfg.forward_bonus
+                                    if not best_clear or score>best_clear.score then
+                                        best_clear={direction=direction,receiver=receiver,
+                                            margin=margin,landing_distance=best_my,
+                                            score=score}
+                                    end
+                                end
+                            end
+                            if best_clear then
+                                exit.direction=best_clear.direction
+                            end
+                            report:write("DEF_CLEAR_RECEIVER_EVAL",true,
+                                {possession=possession,game_state=gs,my_base=my_base},
+                                "OBSERVE_CLEARANCE",
+                                "selected="..tostring(best_clear and best_clear.direction)
+                                ..";receiver="..tostring(best_clear and best_clear.receiver)
+                                ..";margin="..tostring(best_clear and best_clear.margin)
+                                ..";fallback="..tostring(exit.direction)
+                                ..";threat="..tostring(exit.threat))
+                        end
                         local charge_cfg=config.CHARGED_DEFENSIVE_CLEARANCE
                         local charging=exit.button=="A"
                             and (exit.direction=="Left" or exit.direction=="Right")
