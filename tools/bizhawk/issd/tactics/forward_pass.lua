@@ -421,6 +421,70 @@ function M.new(config,players,field_side,mem)
         else diag.reason="SAFETY_FILTER" end
         return best,diag
     end
+    -- Safe defensive support pass: a teammate slightly behind the carrier
+    -- may be an excellent intermediate outlet. Use only the physical
+    -- vertical B lane; do not mistake a diagonal segment for a cardinal pass.
+    function obj.support_plan(carrier)
+        local cfg=config.DEFENSIVE_SUPPORT_PASS
+        if not cfg or not cfg.enabled or obj.cooldown>0
+            or not players.valid_my_base(carrier)
+            or carrier==config.MY_FIRST then return nil,"DISABLED_OR_COOLDOWN" end
+        local dir=field_side.attack_direction()
+        if dir~=1 and dir~=-1 then return nil,"NO_DIRECTION" end
+        local px,py=players.xy(carrier)
+        if zone_for(px,dir)~=1 then return nil,"NOT_DEFENSIVE_THIRD" end
+        local best=nil
+        local observed=0
+        players.each_my(function(base)
+            if base~=carrier and base~=config.MY_FIRST then
+                local rx,ry=players.xy(base)
+                local back=(px-rx)*dir
+                local lateral=math.abs(ry-py)
+                local axis=math.abs(rx-px)
+                if back>=0 and back<=cfg.max_backward
+                    and lateral>=cfg.min_lateral and lateral<=cfg.max_lateral
+                    and axis<=cfg.max_axis_offset then
+                    observed=observed+1
+                    local receiver_space=math.huge
+                    local corridor=math.huge
+                    local cpu_landing=math.huge
+                    players.each_cpu(function(cpu)
+                        if cpu~=config.CPU_FIRST then
+                            local ex,ey=players.xy(cpu)
+                            receiver_space=math.min(receiver_space,
+                                distance(rx,ry,ex,ey))
+                            local t=(ey-py)/(ry-py)
+                            if t>=0 and t<=1 then
+                                corridor=math.min(corridor,math.abs(ex-px))
+                            end
+                            cpu_landing=math.min(cpu_landing,
+                                distance(px,ry,ex,ey))
+                        end
+                    end)
+                    local receiver_landing=axis
+                    local margin=cpu_landing-receiver_landing
+                    if receiver_space>=cfg.min_receiver_clearance
+                        and corridor>=cfg.min_lane_clearance
+                        and margin>=cfg.min_arrival_margin then
+                        local score=receiver_space+0.65*corridor
+                            +0.45*margin-back*0.20
+                        if not best or score>best.score then
+                            best={carrier=carrier,receiver=base,zone=1,
+                                intent="DEFENSIVE_SUPPORT",button=c.button,
+                                direction=ry<py and "Up" or "Down",
+                                distance=distance(px,py,rx,ry),
+                                forward=-back,lateral=lateral,
+                                receiver_clearance=receiver_space,
+                                lane_clearance=corridor,score=score,
+                                arrival_margin=margin}
+                        end
+                    end
+                end
+            end
+        end)
+        return best,best and "SAFE_SUPPORT" or
+            (observed>0 and "UNSAFE_SUPPORT" or "NO_ALIGNED_SUPPORT")
+    end
     function obj.fire(plan,movement)
         if not plan or obj.cooldown>0 then return false end
         if plan.intent=="SHORT_DIAGONAL" or plan.intent=="EIGHT_WAY_DIAGONAL" then
