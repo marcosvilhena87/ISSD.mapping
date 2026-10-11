@@ -1748,7 +1748,10 @@ local function step_bot()
                             ..";receiver="..tostring(all_support and all_support.receiver)
                             ..";direction="..tostring(all_support and all_support.direction)
                             ..";vertical="..tostring(all_support and all_support.vertical)
-                            ..";continuity="..tostring(all_support and all_support.continuity_bonus))
+                            ..";continuity="..tostring(all_support and all_support.continuity_bonus)
+                            ..";source_corridor="..tostring(all_support and all_support.source_corridor)
+                            ..";destination_corridor="..tostring(all_support and all_support.destination_corridor)
+                            ..";corridor_changed="..tostring(all_support and all_support.corridor_changed))
                     end
                     -- A safe slightly backward support pass is preferable to
                     -- an emergency A-clearance when no progressive outlet exists.

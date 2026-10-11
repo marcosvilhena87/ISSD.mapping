@@ -424,6 +424,17 @@ M.GK_BACKPASS_SUPPORT = {
 
 -- Evaluate 8 executable B rays in the defensive third, including GK.
 -- Conservative ball-ray alignment and strict keeper safety thresholds.
+-- Safe 8-way B-pass ranking bonus for escaping a pressured corridor.
+-- Does not waive existing lane, arrival or receiver clearance thresholds.
+M.DEFENSIVE_CORRIDOR_ESCAPE = {
+    enabled=true,
+    pressure_radius=110,
+    min_receiver_clearance=100,
+    min_lane_clearance=75,
+    min_arrival_margin=55,
+    change_bonus=24,
+}
+
 M.DEFENSIVE_ALL_DIRECTION_SUPPORT = {
     enabled=true,
     min_distance=40,
