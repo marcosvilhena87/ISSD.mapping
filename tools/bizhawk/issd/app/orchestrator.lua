@@ -174,6 +174,7 @@ local second_ball_last_shots_cpu=nil
 local second_ball_lock=nil
 local first_rebound_lock=nil
 local corner_intercept_lock=nil
+local ground_recovery_commit=nil
 local second_ball_sequence=0
 local final_third_cooldown_until=0
 local last_flight_discrepancy=false
@@ -3426,6 +3427,89 @@ local function step_bot()
                 {possession=possession,game_state=gs,my_base=my_base},
                 "OBSERVE_CORNER_LOCK","reason=POSSESSION_OR_PLAYER_CHANGED")
             corner_intercept_lock=nil
+        end
+
+        -- Ground-ball continuity: compare arrival times for the *controlled*
+        -- outfielder, not the team's best candidate. Do not interrupt the
+        -- earlier goal-bound/corner emergency handling.
+        local gc=config.GROUND_RECOVERY_COMMIT
+        if ground_recovery_commit or (gc.enabled and possession==0
+            and (effective_unowned_team=="CPU" or effective_unowned_team=="MY")) then
+            local lock=ground_recovery_commit
+            local height=math.max(0,-mem.s16(config.AERIAL_CONTACT.height_addr))
+            local valid=possession==0 and gs==0 and height<=gc.max_height
+                and players.valid_my_base(my_base) and my_base~=config.MY_FIRST
+                and (effective_unowned_team=="CPU" or effective_unowned_team=="MY")
+            local px,py=players.xy(my_base)
+            local cpu_distance=math.huge
+            if valid then
+                players.each_cpu(function(base)
+                    if base~=config.CPU_FIRST then
+                        local x,y=players.xy(base)
+                        cpu_distance=math.min(cpu_distance,math.sqrt((bx-x)^2+(by-y)^2))
+                    end
+                end)
+            end
+            local tx,ty=bx,by
+            if lock then tx,ty=lock.x,lock.y end
+            local dist=math.sqrt((tx-px)^2+(ty-py)^2)
+            local advantage=cpu_distance/gc.speed-dist/gc.speed
+            local reason=nil
+            if lock then
+                local drift=math.sqrt((bx-lock.bx)^2+(by-lock.by)^2)
+                if not valid then reason="NOT_GROUND_UNOWNED"
+                elseif lock.base~=my_base then reason="PLAYER_CHANGED"
+                elseif report.frame-lock.frame>=gc.frames then reason="TIMEOUT"
+                elseif drift>gc.max_ball_drift then reason="BALL_DRIFT"
+                elseif dist<=gc.arrive_distance then reason="ARRIVED"
+                elseif advantage< -gc.retain_eta_deficit then reason="ETA_LOST" end
+            elseif valid and dist<=gc.max_distance
+                and advantage>=gc.min_eta_advantage and latest_contest
+                and latest_contest_frame
+                and report.frame-latest_contest_frame<=2
+                and latest_contest.stability>=3
+                and latest_contest.height<=gc.max_height then
+                -- Avoid locking to a stale trajectory prediction.
+                local predicted_offset=math.sqrt(
+                    (latest_contest.target_x-bx)^2+(latest_contest.target_y-by)^2)
+                if predicted_offset<=gc.max_target_offset then
+                    local corrected=field_boundary.correct(px,py,bx,by)
+                    tx,ty=corrected.x,corrected.y
+                    dist=math.sqrt((tx-px)^2+(ty-py)^2)
+                    advantage=cpu_distance/gc.speed-dist/gc.speed
+                    if advantage>=gc.min_eta_advantage then
+                        lock={frame=report.frame,base=my_base,
+                            x=tx,y=ty,bx=bx,by=by}
+                        ground_recovery_commit=lock
+                        report:write("GROUND_RECOVERY_COMMIT_START",true,
+                            {possession=possession,game_state=gs,my_base=my_base,
+                             ball_x=bx,ball_y=by},"OBSERVE_GROUND_COMMIT",
+                            "controlled_eta="..(dist/gc.speed)
+                            ..";cpu_eta="..(cpu_distance/gc.speed)
+                            ..";advantage="..advantage)
+                    end
+                end
+            end
+            if lock and reason then
+                report:write("GROUND_RECOVERY_COMMIT_END",true,
+                    {possession=possession,game_state=gs,my_base=my_base,
+                     ball_x=bx,ball_y=by},"OBSERVE_GROUND_COMMIT",
+                    "reason="..reason..";age="..(report.frame-lock.frame)
+                    ..";advantage="..advantage)
+                ground_recovery_commit=nil
+            elseif lock then
+                local dx,dy=tx-px,ty-py
+                movement.move_toward(dx,dy)
+                local state=make_state(my_base,dx,dy,
+                    "GROUND_RECOVERY_COMMIT",possession,gs)
+                state.intercept_target_x=tx
+                state.intercept_target_y=ty
+                state.contest_my_eta=dist/gc.speed
+                state.contest_cpu_eta=cpu_distance/gc.speed
+                return attach_live_state(state,"GROUND_RECOVERY_CONTINUITY",
+                    effective_unowned_team=="CPU"
+                    and "CPU_UNOWNED_BALL" or "MY_UNOWNED_BALL")
+            end
         end
 
         -- First loose rebound: reach the ball before pressuring its likely
