@@ -15,6 +15,16 @@ function M.new(d)
     local movement=d.movement
     local restart_origin_tracker=d.restart_origin_tracker
     local gk_throw_outcome_tracker=d.gk_throw_outcome_tracker
+    local opportunity_tracker=d.opportunity_tracker
+
+function obj.observe_pass_window_outcome(state)
+    for _,ev in ipairs(opportunity_tracker.outcome(report.frame,state)) do
+        report:write(ev.kind,true,state,"OBSERVE_PASS_WINDOW",
+            "receiver="..tostring(ev.receiver)..";sector="..tostring(ev.sector)
+            ..";duration="..tostring(ev.duration)..";reason="..tostring(ev.reason)
+            ..";status="..tostring(state.status))
+    end
+end
 
 function obj.observe_field_transitions(state)
         local transition_events=defensive_midfield_transition.update(state,report.frame)
@@ -80,6 +90,12 @@ function obj.observe_five_direction_pass(my_base,outlet,diagnostic)
     local result=five_direction_pass_observer.evaluate(report.frame,my_base,
         outlet and outlet.receiver or nil)
     if not result then return end
+    for _,ev in ipairs(opportunity_tracker.sample(report.frame,my_base,result,outlet)) do
+        report:write(ev.kind,true,{my_base=my_base},"OBSERVE_PASS_WINDOW",
+            "receiver="..tostring(ev.receiver)..";sector="..tostring(ev.sector)
+            ..";duration="..tostring(ev.duration)..";reason="..tostring(ev.reason)
+            ..";selected="..tostring(ev.selected))
+    end
     local best=result.best
     local pieces={"best_sector="..tostring(result.best_sector),
         "best_base="..tostring(best and best.base),
