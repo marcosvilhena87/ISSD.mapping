@@ -58,7 +58,8 @@ function obj.observe_defensive_pass_calibration(p,frame,owner,bx,by,outcome,gs)
             ..";release_confirmed="..tostring(ev.release_confirmed)
             ..";physical_release_age="..tostring(ev.physical_release_age)
             ..";disposition="..tostring(ev.disposition)
-            ..";displacement="..tostring(ev.displacement))
+            ..";displacement="..tostring(ev.displacement)
+            ..";angle="..tostring(ev.angle))
     end
 end
 
