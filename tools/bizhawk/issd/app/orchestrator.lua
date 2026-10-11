@@ -151,6 +151,7 @@ local defensive_hold_guard=nil
 local defensive_pass_alignment=nil
 local defensive_pass_pending=nil
 local defensive_pass_chain=nil
+local defensive_team_stall=nil
 local defensive_pass_sequence=0
 local defensive_alignment_blocks={}
 local bot_build_logged=false
@@ -1337,6 +1338,43 @@ local function step_bot()
     end
 
     if game_state.is_live(gs) then
+        -- Team-wide progress persists across changes of ball carrier.
+        -- Reset on CPU possession and after leaving the defensive third.
+        local team_cfg=config.DEFENSIVE_TEAM_STAGNATION
+        local atk=field_side.attack_direction()
+        if team_cfg and team_cfg.enabled and atk~=0
+            and players.valid_my_base(possession)
+            and in_defensive_third(possession) then
+            local x=players.xy(possession)
+            local progress=x*atk
+            if not defensive_team_stall then
+                defensive_team_stall={peak=progress,last_gain=report.frame,
+                    started=report.frame,carrier=possession,active=false}
+            else
+                local t=defensive_team_stall
+                if progress>=t.peak+team_cfg.min_progress then
+                    t.peak=progress;t.last_gain=report.frame
+                    if t.active then
+                        report:write("DEF_TEAM_STALL_END",true,
+                            {possession=possession,game_state=gs,my_base=my_base},
+                            "PROGRESS","age="..(report.frame-t.started))
+                    end
+                    t.active=false
+                elseif not t.active and report.frame-t.last_gain>=team_cfg.frames then
+                    t.active=true
+                    report:write("DEF_TEAM_STALL_START",true,
+                        {possession=possession,game_state=gs,my_base=my_base},
+                        "NO_FORWARD_GAIN",
+                        "age="..(report.frame-t.started)
+                        ..";carrier="..tostring(possession))
+                end
+                t.carrier=possession
+            end
+        elseif players.valid_cpu_base(possession)
+            or (players.valid_my_base(possession)
+                and not in_defensive_third(possession)) then
+            defensive_team_stall=nil
+        end
         if possession~=my_base then
             defensive_exit.reset(); defensive_carrier=nil
             defensive_hold_guard=nil
@@ -1869,7 +1907,17 @@ local function step_bot()
                         state.forward_pass_vertical=outlet.vertical
                         return attach_live_state(state,"DEFENSIVE_TRANSITION","MY_CONTROLLED")
                     end
-                    local exit=defensive_exit.plan(my_base,forward_pass.cooldown,outlet_diag)
+                    local team_stalled=defensive_team_stall
+                        and defensive_team_stall.active or false
+                    local exit=defensive_exit.plan(my_base,
+                        forward_pass.cooldown,outlet_diag,team_stalled)
+                    if team_stalled and report.frame%45==0 then
+                        report:write("DEF_TEAM_STALL_REASSESS",true,
+                            {possession=possession,game_state=gs,my_base=my_base},
+                            "OBSERVE_ESCAPE","exit="..tostring(exit.mode)
+                            ..";reason="..tostring(exit.reason)
+                            ..";threat="..tostring(exit.threat))
+                    end
                     if exit.mode=="HOLD" and exit.reason=="NO_SAFE_SPACE" then
                         if not defensive_hold_guard then
                             defensive_hold_guard={carrier=my_base,start=report.frame}
