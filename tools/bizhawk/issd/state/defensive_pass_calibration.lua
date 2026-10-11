@@ -63,6 +63,13 @@ function M.new(config,players)
     release_confirmed=a.physical_release~=nil,
     disposition=a.physical_release and "RELEASE_OBSERVED"
      or (a.owner_left and "OWNER_LEFT_WITHOUT_TRAVEL" or "NO_RELEASE_EVIDENCE")}
+   if a.physical_release and
+       (outcome=="PASS_RECEIVED" or outcome=="PASS_INTERCEPTED") then
+    events[#events+1]={kind="DEF_PASS_RECEPTION_CONFIRMED",
+     sequence=p.sequence,age=age,owner=owner,outcome=outcome,
+     receiver=p.receiver,mode=p.intent,direction=p.direction,
+     release_confirmed=true}
+   end
    obj.active=nil
   end
   a.last_x=bx;a.last_y=by
