@@ -4029,6 +4029,69 @@ local function step_bot()
                     aerial_receiver_mark_lock=nil
                 elseif players.valid_cpu_base(lock.receiver)
                     and players.valid_my_base(my_base) then
+                    local rv=config.AERIAL_LOCK_TARGET_REVALIDATION
+                    if rv and rv.enabled then
+                        local px0,py0=players.xy(my_base)
+                        local ox,oy=players.xy(lock.receiver)
+                        local old_distance=math.sqrt((ox-px0)^2+(oy-py0)^2)
+                        local vx=possession_context.ball_dx or 0
+                        local vy=possession_context.ball_dy or 0
+                        local tx=bx+vx*rv.projection_frames
+                        local ty=by+vy*rv.projection_frames
+                        local old_projection=math.sqrt((ox-tx)^2+(oy-ty)^2)
+                        local candidate=nil
+                        local candidate_distance=math.huge
+                        local candidate_projection=math.huge
+                        players.each_cpu(function(base)
+                            if base~=config.CPU_FIRST and base~=lock.receiver then
+                                local ex,ey=players.xy(base)
+                                local d=math.sqrt((ex-px0)^2+(ey-py0)^2)
+                                if d<candidate_distance then
+                                    candidate=base
+                                    candidate_distance=d
+                                    candidate_projection=math.sqrt(
+                                        (ex-tx)^2+(ey-ty)^2)
+                                end
+                            end
+                        end)
+                        local elapsed=report.frame-(lock.last_retarget or
+                            (lock.start-rv.retarget_cooldown))
+                        local rejection="NONE"
+                        if not candidate then rejection="NO_CANDIDATE"
+                        elseif age<rv.min_lock_age then rejection="LOCK_AGE"
+                        elseif elapsed<rv.retarget_cooldown then
+                            rejection="COOLDOWN"
+                        elseif candidate_distance>rv.near_defender then
+                            rejection="DEFENDER_DISTANCE"
+                        elseif old_distance-candidate_distance<rv.min_distance_gain then
+                            rejection="DISTANCE_GAIN"
+                        elseif candidate_projection>rv.max_projection_gap then
+                            rejection="TRAJECTORY_GAP"
+                        elseif candidate_projection>old_projection+rv.projection_tolerance then
+                            rejection="PROJECTION_TOLERANCE"
+                        end
+                        local previous=lock.receiver
+                        if rejection=="NONE" then
+                            lock.receiver=candidate
+                            lock.last_retarget=report.frame
+                        end
+                        if rejection=="NONE" or age<=1
+                            or report.frame%rv.trace_interval==0 then
+                            report:write(rejection=="NONE"
+                                and "AERIAL_LOCK_TARGET_REVALIDATED"
+                                or "AERIAL_LOCK_REVALIDATION_REJECTED",true,
+                                {my_base=my_base,possession=possession,game_state=gs},
+                                "OBSERVE_RECEIVER_MARK",
+                                "reason="..rejection..";old="..previous
+                                ..";candidate="..tostring(candidate)
+                                ..";selected="..lock.receiver
+                                ..";old_distance="..old_distance
+                                ..";candidate_distance="..candidate_distance
+                                ..";old_projection="..old_projection
+                                ..";candidate_projection="..candidate_projection
+                                ..";age="..age..";cooldown="..elapsed)
+                        end
+                    end
                     local rx,ry=players.xy(lock.receiver)
                     local px,py=players.xy(my_base)
                     local gx,gy=players.xy(config.MY_FIRST)
