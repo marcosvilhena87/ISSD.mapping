@@ -298,6 +298,17 @@ M.CHARGED_DEFENSIVE_CLEARANCE = {
     calibration_frames={3,5,7}, -- rotate only non-urgent launches
 }
 
+M.DEFENSIVE_SUPPORT_PASS = {
+    enabled=true,
+    max_backward=60,
+    min_lateral=40,
+    max_lateral=180,
+    max_axis_offset=22,
+    min_receiver_clearance=105,
+    min_lane_clearance=75,
+    min_arrival_margin=35,
+}
+
 M.DEEP_DEFENSIVE_LATERAL = {
     max_own_goal_distance=420,
     max_receiver_axis_offset=24,
