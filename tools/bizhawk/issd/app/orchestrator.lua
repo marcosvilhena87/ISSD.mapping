@@ -3118,16 +3118,21 @@ local function step_bot()
             local height=math.max(0,-mem.s16(config.AERIAL_CONTACT.height_addr))
             local dist=math.sqrt((bx-px)^2+(by-py)^2)
             local goal_dist=math.sqrt((bx-gx)^2+(by-gy)^2)
-            local descending=header_last_height~=nil
-                and height<=header_last_height
+            local near_descent=header_last_height~=nil
+                and (header_last_height-height) or 0
+            local descending=near_descent>=timing.min_descent
+            local near_eta=descending and math.max(0,
+                (height-timing.target_height)/near_descent) or nil
+            local near_timing_ready=near_eta~=nil
+                and near_eta<=timing.max_eta_frames
+                and math.abs(near_eta-timing.animation_lead_frames)
+                    <=timing.tolerance_frames
             header_last_height=height
             if goal_dist<=hc.goal_radius
                 and height>=hc.min_height and height<=hc.max_height
                 and dist<=hc.contact_distance and descending
                 and header_contact_allowed(dist)
-                and (not timing.enabled or
-                    (aerial_predict_last_height~=nil
-                     and timing_ready))
+                and (not timing.enabled or near_timing_ready)
                 and report.frame-header_last_frame>=hc.cooldown_frames then
                 local dx,dy=bx-px,by-py
                 local attack_dir=field_side.attack_direction()
@@ -3155,7 +3160,9 @@ local function step_bot()
                 report:write("AERIAL_HEADER_TIMING_FIRE",true,state,
                     movement.last_command,
                     "mode=CONTACT;lead="..timing.animation_lead_frames
-                    ..";height="..height..";distance="..dist)
+                    ..";contact_eta="..tostring(near_eta)
+                    ..";height="..height..";descent="..near_descent
+                    ..";distance="..dist)
                 report:write("DEFENSIVE_HEADER_ATTEMPT",true,state,
                     movement.last_command,
                     "height="..height..";distance="..dist
