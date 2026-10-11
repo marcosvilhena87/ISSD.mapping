@@ -37,7 +37,11 @@ function obj.observe_defensive_pass_calibration(p,frame,owner,bx,by,outcome,gs)
             ..";max_offset="..tostring(ev.max_offset)
             ..";release_age="..tostring(ev.release_age)
             ..";samples="..tostring(ev.samples)
-            ..";outcome="..tostring(ev.outcome))
+            ..";outcome="..tostring(ev.outcome)
+            ..";release_confirmed="..tostring(ev.release_confirmed)
+            ..";physical_release_age="..tostring(ev.physical_release_age)
+            ..";disposition="..tostring(ev.disposition)
+            ..";displacement="..tostring(ev.displacement))
     end
 end
 
