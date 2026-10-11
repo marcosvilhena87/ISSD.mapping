@@ -100,6 +100,16 @@ M.PRE_RECEPTION_PRESSURE_LOCK = {
     trace_interval=5,
 }
 
+-- Conservative reaction to an already confirmed CPU takeover.
+M.POST_LOSS_COUNTERPRESS = {
+    enabled=true,
+    max_frames=30,
+    max_distance=70,
+    tackle_probe_distance=30,
+    min_goal_distance=380,
+    trace_interval=5,
+}
+
 M.CROSS_SECOND_BALL_COVER = {
     enabled=true,
     goal_radius=430,
