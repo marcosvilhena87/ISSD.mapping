@@ -150,6 +150,7 @@ local defensive_hold_age = 0
 local defensive_hold_guard=nil
 local defensive_pass_alignment=nil
 local defensive_pass_pending=nil
+local defensive_pass_chain=nil
 local defensive_pass_sequence=0
 local defensive_alignment_blocks={}
 local bot_build_logged=false
@@ -762,6 +763,30 @@ local function step_bot()
         telemetry_controller.observe_defensive_pass_calibration(
             p,report.frame,possession,calibration_x,calibration_y,kind,gs)
         if kind then
+            local chain_cfg=config.DEFENSIVE_PASS_CHAIN
+            if chain_cfg.enabled and kind=="PASS_RECEIVED"
+                and possession==p.receiver then
+                local chain=defensive_pass_chain
+                if not chain or report.frame-chain.start>chain_cfg.max_frames
+                    or chain.links>=chain_cfg.max_links then
+                    chain={start=report.frame,links=0}
+                    defensive_pass_chain=chain
+                    report:write("DEF_PASS_CHAIN_START",true,
+                        {possession=possession,game_state=gs,my_base=my_base},
+                        "OBSERVE_CHAIN","first_receiver="..possession
+                        ..";sequence="..p.sequence)
+                end
+                chain.links=chain.links+1
+                chain.receiver=possession
+                chain.received_frame=report.frame
+                report:write("DEF_PASS_CHAIN_LINK",true,
+                    {possession=possession,game_state=gs,my_base=my_base},
+                    "OBSERVE_CHAIN","links="..chain.links
+                    ..";receiver="..possession
+                    ..";sequence="..p.sequence)
+            elseif kind=="PASS_INTERCEPTED" then
+                defensive_pass_chain=nil
+            end
             report:write("DEFENSIVE_"..kind,true,
                 {possession=possession,game_state=gs,my_base=my_base},
                 "OBSERVE_PASS_OUTCOME",
@@ -1619,6 +1644,19 @@ local function step_bot()
                         return attach_live_state(state,"PASS_ALIGNMENT","MY_CONTROLLED")
                     end
                                         -- No forward dribble or Y dash while holding the defensive line.
+                    local chain_cfg=config.DEFENSIVE_PASS_CHAIN
+                    local chain=defensive_pass_chain
+                    if chain and (report.frame-chain.start>chain_cfg.max_frames
+                        or not players.valid_my_base(possession)) then
+                        defensive_pass_chain=nil
+                        chain=nil
+                    end
+                    if chain and defensive_hold_age==1 then
+                        report:write("DEF_PASS_CHAIN_CONTINUE",true,
+                            {possession=possession,game_state=gs,my_base=my_base},
+                            "OBSERVE_CHAIN","links="..chain.links
+                            ..";age="..(report.frame-chain.start))
+                    end
                     local outlet,outlet_diag=forward_pass.plan(my_base,false,true)
                     -- A safe slightly backward support pass is preferable to
                     -- an emergency A-clearance when no progressive outlet exists.
@@ -1876,6 +1914,34 @@ local function step_bot()
                         return attach_live_state(state,"DEFENSIVE_TRANSITION","MY_CONTROLLED")
                     end
                     if exit.mode=="CLEAR" then
+                        -- After a confirmed reception, prioritize a fresh pass
+                        -- assessment over speculative A clearance. Never suppress
+                        -- a clearance under immediate tackling pressure.
+                        local chain=defensive_pass_chain
+                        local cc=config.DEFENSIVE_PASS_CHAIN
+                        if cc.enabled and chain and chain.receiver==my_base
+                            and report.frame-chain.start<=cc.max_frames
+                            and report.frame-chain.received_frame>=cc.min_next_pass_delay
+                            and (exit.threat==nil or exit.threat>cc.emergency_threat)
+                            and chain.links<cc.max_links then
+                            local px,py=players.xy(my_base)
+                            local direction=field_side.attack_direction()
+                            local guarded=field_boundary.correct(px,py,
+                                px+direction*20,py)
+                            movement.move_toward(guarded.x-px,guarded.y-py)
+                            if report.frame%cc.log_interval==0 then
+                                report:write("DEF_PASS_CHAIN_HOLD_CLEAR",true,
+                                    {possession=possession,game_state=gs,my_base=my_base},
+                                    movement.last_command,
+                                    "links="..chain.links
+                                    ..";threat="..tostring(exit.threat)
+                                    ..";age="..(report.frame-chain.start))
+                            end
+                            local state=make_state(my_base,guarded.x-px,
+                                guarded.y-py,"DEF_PASS_CHAIN_REASSESS",possession,gs)
+                            return attach_live_state(state,"DEFENSIVE_TRANSITION",
+                                "MY_CONTROLLED")
+                        end
                         -- Give the ROM a short chance to accept the pass input.
                         -- Never suppress a truly urgent clearance.
                         local pc=config.DEFENSIVE_PASS_CONTINUITY
