@@ -153,7 +153,7 @@ local defensive_pass_pending=nil
 local defensive_pass_sequence=0
 local defensive_alignment_blocks={}
 local bot_build_logged=false
-local BOT_BUILD_ID="defensive-pass-preemption-audit-20261010-v82"
+local BOT_BUILD_ID="defensive-pass-adaptive-continuity-20261010-v83"
 local defensive_escape_pending=nil
 local defensive_clear_charge=nil
 local clearance_calibration_index=0
@@ -1787,6 +1787,41 @@ local function step_bot()
                         return attach_live_state(state,"DEFENSIVE_TRANSITION","MY_CONTROLLED")
                     end
                     if exit.mode=="CLEAR" then
+                        -- Give the ROM a short chance to accept the pass input.
+                        -- Never suppress a truly urgent clearance.
+                        local pc=config.DEFENSIVE_PASS_CONTINUITY
+                        local pending=defensive_pass_pending
+                        if pc.enabled and pending and pending.passer==my_base then
+                            local age=report.frame-pending.frame
+                            local bx_now,by_now=ball.world_xy()
+                            local drift=math.sqrt((bx_now-pending.ball_x)^2+
+                                (by_now-pending.ball_y)^2)
+                            if age>0 and age<=pc.window_frames
+                                and possession==pending.passer
+                                and drift<pc.release_displacement then
+                                if exit.threat==nil or exit.threat>pc.emergency_threat then
+                                    movement.stop()
+                                    report:write("DEF_PASS_CONTINUITY_HELD",true,
+                                        {possession=possession,game_state=gs,my_base=my_base},
+                                        "OBSERVE_PASS_CONTINUITY",
+                                        "sequence="..pending.sequence
+                                        ..";age="..age..";drift="..drift
+                                        ..";threat="..tostring(exit.threat)
+                                        ..";reason=WAIT_PASS_ACCEPTANCE")
+                                    local state=make_state(my_base,0,0,
+                                        "DEFENSIVE_PASS_CONTINUITY_WAIT",possession,gs)
+                                    state.defensive_recovery=true
+                                    return attach_live_state(state,"DEF_PASS_CONTINUITY","MY_CONTROLLED")
+                                else
+                                    report:write("DEF_PASS_CONTINUITY_EMERGENCY",true,
+                                        {possession=possession,game_state=gs,my_base=my_base},
+                                        "OBSERVE_PASS_CONTINUITY",
+                                        "sequence="..pending.sequence
+                                        ..";age="..age..";drift="..drift
+                                        ..";threat="..tostring(exit.threat))
+                                end
+                            end
+                        end
                         telemetry_controller.observe_pass_preemption(
                             defensive_pass_pending,report.frame,possession,
                             "PRESSURE_CLEAR",exit.threat,exit.reason,gs)
