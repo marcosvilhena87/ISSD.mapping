@@ -155,7 +155,8 @@ local defensive_team_stall=nil
 local defensive_pass_sequence=0
 local defensive_alignment_blocks={}
 local bot_build_logged=false
-local BOT_BUILD_ID="goal-corridor-early-cover-20261010-v88"
+local BuildInfo=dofile(DIR .. "../core/build_info.lua")
+local build_info=BuildInfo.read(DIR,config)
 local defensive_escape_pending=nil
 local defensive_clear_charge=nil
 local defensive_clear_execution=nil
@@ -523,7 +524,8 @@ local function step_bot()
         report:write("BOT_BUILD",true,
             {my_base=my_base,game_state=game_state.read(),
              gameplay_active=gameplay_value},
-            "BUILD",BOT_BUILD_ID)
+            "BUILD",build_info.detail)
+        console.log("[ISSD] BOT_BUILD: "..build_info.detail)
         bot_build_logged=true
     end
     player_switch.observe_control(my_base)
