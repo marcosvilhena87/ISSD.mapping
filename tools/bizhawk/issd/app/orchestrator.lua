@@ -1620,6 +1620,24 @@ local function step_bot()
                     end
                                         -- No forward dribble or Y dash while holding the defensive line.
                     local outlet,outlet_diag=forward_pass.plan(my_base,false,true)
+                    -- A safe slightly backward support pass is preferable to
+                    -- an emergency A-clearance when no progressive outlet exists.
+                    local support,support_reason=nil,nil
+                    if not outlet then
+                        support,support_reason=forward_pass.support_plan(my_base)
+                        if support then outlet=support end
+                    end
+                    if defensive_hold_age==1 or (support and report.frame%15==0) then
+                        report:write("DEFENSIVE_SUPPORT_CANDIDATE",true,
+                            {possession=possession,game_state=gs,my_base=my_base},
+                            "OBSERVE_SUPPORT",
+                            "available="..tostring(support~=nil)
+                            ..";reason="..tostring(support_reason)
+                            ..";receiver="..tostring(support and support.receiver)
+                            ..";backward="..tostring(support and -support.forward)
+                            ..";lane="..tostring(support and support.lane_clearance)
+                            ..";space="..tostring(support and support.receiver_clearance))
+                    end
                     telemetry_controller.observe_five_direction_pass(my_base,outlet,outlet_diag)
                     if config.EARLY_DEFENSIVE_OUTLET.enabled
                         and defensive_hold_age==1 then
@@ -1703,6 +1721,15 @@ local function step_bot()
                         outlet_ready=waiting==true
                     end
                     if outlet_ready and forward_pass.fire(outlet,movement) then
+                        if outlet.intent=="DEFENSIVE_SUPPORT" then
+                            report:write("DEFENSIVE_SUPPORT_PASS_SENT",true,
+                                {possession=possession,game_state=gs,my_base=my_base},
+                                movement.last_command,
+                                "receiver="..outlet.receiver
+                                ..";backward="..(-outlet.forward)
+                                ..";lane="..outlet.lane_clearance
+                                ..";space="..outlet.receiver_clearance)
+                        end
                         defensive_exit.on_pass()
                         telemetry_controller.observe_pass_preemption(
                             defensive_pass_pending,report.frame,possession,
