@@ -379,6 +379,18 @@ M.RECEIVER_AWARE_DEF_CLEARANCE = {
     allow_backward=false,
 }
 
+-- Tentative charge/range mapping; tune from DEF_CLEAR_OUTCOME.
+-- Emergency A stays fixed at 3 frames.
+M.DEFENSIVE_CLEAR_LANDING_RISK = {
+    enabled=true,
+    ranges={{frames=3,travel=120},{frames=5,travel=175},
+        {frames=7,travel=230}},
+    max_receiver_distance=85,
+    min_margin=40,
+    distance_penalty=0.2,
+    fallback_frames=3,
+}
+
 M.CHARGED_DEFENSIVE_CLEARANCE = {
     urgent_radius=38,
     urgent_frames=3, -- prioritize release before tackle under immediate pressure
