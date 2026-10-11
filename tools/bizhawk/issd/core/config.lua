@@ -671,6 +671,22 @@ M.PROGRESSIVE_PASS_PRIORITY = {
 
 -- Fallback 8-way B input: projected ray + reachable receiver.
 -- Conservative limits until ROM diagonal ball trajectories are calibrated.
+-- Narrow experimental exception from manually successful $0800->$0C00
+-- Right+Down+B. Disable to restore the previous behavior instantly.
+-- These limits are hypotheses, NOT a calibrated ROM trajectory.
+M.DIAGONAL_PASS_EMPIRICAL_OVERRIDE_GUARDED = {
+    enabled=true,
+    carrier=0x0800, receiver=0x0C00,
+    min_forward=110, max_forward=175,
+    min_lateral=45, max_lateral=90,
+    max_distance=200, min_projection=95,
+    max_command_miss=58,
+    min_receiver_clearance=65,
+    min_lane_clearance=65,
+    min_arrival_margin=28,
+    receiver_speed=4, cpu_speed=5,
+}
+
 M.EIGHT_WAY_PASS = {
     enabled=true,
     max_distance=235,
