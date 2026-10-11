@@ -2554,9 +2554,26 @@ local function step_bot()
                         local tx=cx+vx/lane_length*offset
                         local ty=cy+vy/lane_length*offset
                         local dx,dy=tx-px,ty-py
-                        movement.move_toward(dx,dy)
+                        -- When already within verified tackling range, challenge
+                        -- the carrier instead of stepping away toward the lane.
+                        -- The tackle planner checks carrier/ball proximity and
+                        -- cooldown; never infer contact from goal distance alone.
+                        local tackle=active_tackle.plan(my_base,possession,bx,by)
+                        local tackled=tackle and active_tackle.fire(tackle,movement) or false
+                        if not tackled then
+                            movement.move_toward(dx,dy)
+                        end
                         local state=make_state(my_base,dx,dy,
-                            "PRE_SHOT_DEFENSIVE_COVER",possession,gs)
+                            tackled and "PRE_SHOT_DEFENSIVE_TACKLE"
+                                or "PRE_SHOT_DEFENSIVE_COVER",possession,gs)
+                        state.tackle_fired=tackled
+                        if tackled then
+                            state.tackle_carrier=possession
+                            state.tackle_defender=my_base
+                            state.tackle_distance=tackle.distance
+                            state.tackle_defender_ball_distance=tackle.defender_ball_distance
+                            state.tackle_carrier_ball_distance=tackle.carrier_ball_distance
+                        end
                         state.live_carrier=possession
                         state.live_target_x=tx
                         state.live_target_y=ty
@@ -2572,7 +2589,8 @@ local function step_bot()
                             "carrier="..possession..";defender="..my_base
                             ..";target_x="..tx..";target_y="..ty
                             ..";goal_distance="..lane_length)
-                        return attach_live_state(state,"PRE_SHOT_COVER",
+                        return attach_live_state(state,
+                            tackled and "PRE_SHOT_TACKLE" or "PRE_SHOT_COVER",
                             "CPU_CONTROLLED")
                     end
                 end
