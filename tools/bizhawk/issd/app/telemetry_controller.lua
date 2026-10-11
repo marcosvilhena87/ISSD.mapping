@@ -17,6 +17,29 @@ function M.new(d)
     local gk_throw_outcome_tracker=d.gk_throw_outcome_tracker
     local opportunity_tracker=d.opportunity_tracker
     local reception_feasibility=d.reception_feasibility
+    local pass_calibration=d.pass_calibration
+
+function obj.observe_defensive_pass_calibration(p,frame,owner,bx,by,outcome,gs)
+    for _,ev in ipairs(pass_calibration.observe(frame,p,owner,bx,by,outcome)) do
+        report:write(ev.kind,true,{possession=owner,game_state=gs},
+            "OBSERVE_DEF_PASS_FLIGHT",
+            "sequence="..tostring(ev.sequence)
+            ..";age="..tostring(ev.age)
+            ..";mode="..tostring(ev.mode)
+            ..";direction="..tostring(ev.direction)
+            ..";expected_receiver="..tostring(ev.receiver)
+            ..";owner="..tostring(ev.owner)
+            ..";speed="..tostring(ev.speed)
+            ..";travel="..tostring(ev.travel)
+            ..";along="..tostring(ev.along)
+            ..";cross="..tostring(ev.cross)
+            ..";max_speed="..tostring(ev.max_speed)
+            ..";max_offset="..tostring(ev.max_offset)
+            ..";release_age="..tostring(ev.release_age)
+            ..";samples="..tostring(ev.samples)
+            ..";outcome="..tostring(ev.outcome))
+    end
+end
 
 function obj.observe_pass_window_outcome(state)
     for _,ev in ipairs(opportunity_tracker.outcome(report.frame,state)) do
