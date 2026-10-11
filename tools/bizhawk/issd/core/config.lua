@@ -440,6 +440,24 @@ M.EARLY_DEFENSIVE_OUTLET = {
     min_lane_extra=20,
 }
 
+-- Secondary value of a safe defensive pass: space and another outlet.
+-- Conservative ranking adjustment, not an eligibility override.
+M.DEFENSIVE_PASS_CONTINUITY_SCORE = {
+    enabled=true,
+    min_next_progress=35,
+    min_next_distance=45,
+    max_next_distance=235,
+    min_second_clearance=70,
+    min_second_lane=55,
+    max_second_options=2,
+    second_option_bonus=18,
+    forward_probe=55,
+    min_forward_space=75,
+    carry_bonus=18,
+    pressure_radius=85,
+    pressure_penalty=32,
+}
+
 M.PROGRESSIVE_PASS_PRIORITY = {
     enabled=true,
     min_forward=95,
