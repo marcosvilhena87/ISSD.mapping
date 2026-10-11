@@ -153,7 +153,7 @@ local defensive_pass_pending=nil
 local defensive_pass_sequence=0
 local defensive_alignment_blocks={}
 local bot_build_logged=false
-local BOT_BUILD_ID="defensive-pass-release-confirmation-20261010-v80"
+local BOT_BUILD_ID="corner-interception-boundary-20261010-v81"
 local defensive_escape_pending=nil
 local defensive_clear_charge=nil
 local clearance_calibration_index=0
@@ -3575,6 +3575,7 @@ local function step_bot()
                     movement.last_command,"team=CPU;target_x="..ground.x
                     ..";target_y="..ground.y..";lead="..ground.lead
                     ..";height="..ground.height..";distance="..ground.distance)
+                telemetry_controller.observe_corner_interception(state,ground,my_base)
                 return attach_live_state(state,"GROUND_BALL_INTERCEPTION",
                     "CPU_UNOWNED_BALL")
             end
@@ -3753,6 +3754,7 @@ local function step_bot()
                     movement.last_command,"team=MY;target_x="..ground.x
                     ..";target_y="..ground.y..";lead="..ground.lead
                     ..";height="..ground.height..";distance="..ground.distance)
+                telemetry_controller.observe_corner_interception(state,ground,my_base)
                 return attach_live_state(state,"GROUND_BALL_INTERCEPTION",
                     "MY_UNOWNED_BALL")
             end
