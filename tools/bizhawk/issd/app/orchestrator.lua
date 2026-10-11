@@ -2530,6 +2530,64 @@ local function step_bot()
                 )
             end
 
+            -- CPU individual possession is authoritative: a loose-ball
+            -- header/clearance must never preempt an executable box tackle.
+            do
+                local cfg=config.CPU_CONTROLLED_BOX_DEFENSE
+                if cfg.enabled and gs==0
+                    and players.valid_my_base(my_base)
+                    and my_base~=config.MY_FIRST then
+                    local cx,cy=players.xy(possession)
+                    local gx,gy=players.xy(config.MY_FIRST)
+                    local px,py=players.xy(my_base)
+                    local goal_d=math.sqrt((cx-gx)^2+(cy-gy)^2)
+                    local carrier_d=math.sqrt((cx-px)^2+(cy-py)^2)
+                    if goal_d<=cfg.goal_radius
+                        and carrier_d<=cfg.pressure_distance then
+                        local attempt=nil
+                        if carrier_d<=cfg.tackle_probe_distance then
+                            attempt=active_tackle.plan(my_base,possession,bx,by)
+                        end
+                        if attempt and active_tackle.fire(attempt,movement) then
+                            local state=make_state(my_base,0,0,
+                                "CPU_BOX_TACKLE",possession,gs)
+                            state.tackle_fired=true
+                            state.tackle_carrier=possession
+                            state.tackle_defender=my_base
+                            state.tackle_distance=attempt.distance
+                            report:write("BOX_TACKLE_OPPORTUNITY",true,state,
+                                movement.last_command,
+                                "carrier="..possession..";defender="..my_base
+                                ..";carrier_distance="..carrier_d
+                                ..";goal_distance="..goal_d
+                                ..";result=TACKLE_COMMAND")
+                            return attach_live_state(state,"CPU_BOX_DEFENSE",
+                                "CPU_CONTROLLED")
+                        end
+                        -- Tackle unavailable or on cooldown: close the carrier
+                        -- while remaining in the authoritative CPU possession branch.
+                        local dx,dy=cx-px,cy-py
+                        movement.move_toward(dx,dy)
+                        local state=make_state(my_base,dx,dy,
+                            "CPU_BOX_PRESSURE",possession,gs)
+                        state.live_carrier=possession
+                        state.live_target_x=cx
+                        state.live_target_y=cy
+                        if report.frame%cfg.diagnostic_frames==0 then
+                            report:write("CPU_BOX_POSSESSION_DETECTED",true,state,
+                                movement.last_command,
+                                "carrier="..possession..";defender="..my_base
+                                ..";carrier_distance="..carrier_d
+                                ..";goal_distance="..goal_d
+                                ..";tackle_available="..tostring(attempt~=nil)
+                                ..";action=PRESS_NOT_CLEAR")
+                        end
+                        return attach_live_state(state,"CPU_BOX_DEFENSE",
+                            "CPU_CONTROLLED")
+                    end
+                end
+            end
+
             -- v88: protect an exposed carrier-to-goal corridor before global press.
             -- Before the shot: cover a completely exposed carrier-to-goal
             -- corridor. Count all outfield defenders, not only the selected one.
