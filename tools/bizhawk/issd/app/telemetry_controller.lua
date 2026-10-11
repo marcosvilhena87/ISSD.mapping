@@ -18,6 +18,7 @@ function M.new(d)
     local opportunity_tracker=d.opportunity_tracker
     local reception_feasibility=d.reception_feasibility
     local pass_calibration=d.pass_calibration
+    local close_intercept=d.close_intercept
 
 -- Passive audit of competing tactical action while a pass is pending.
 function obj.observe_pass_preemption(p,frame,owner,action,threat,reason,gs)
@@ -68,6 +69,23 @@ function obj.observe_pass_window_outcome(state)
             ..";duration="..tostring(ev.duration)..";reason="..tostring(ev.reason)
             ..";status="..tostring(state.status))
     end
+end
+
+function obj.observe_corner_close_range(frame,base,bx,by,px,py,command,gs)
+    local ev=close_intercept.observe(frame,base,bx,by,px,py,command)
+    if not ev then return end
+    report:write(ev.kind,true,{my_base=base,game_state=gs},
+        "OBSERVE_CLOSE_RANGE",
+        "player="..tostring(ev.player)
+        ..";distance="..tostring(ev.distance)
+        ..";cpu_distance="..tostring(ev.cpu_distance)
+        ..";nearest_cpu="..tostring(ev.cpu)
+        ..";my_closing="..tostring(ev.my_closing)
+        ..";cpu_closing="..tostring(ev.cpu_closing)
+        ..";ball_delta="..tostring(ev.ball_delta)
+        ..";dx="..tostring(ev.dx)
+        ..";dy="..tostring(ev.dy)
+        ..";command="..tostring(ev.command))
 end
 
 function obj.observe_corner_interception(state,ground,base)
