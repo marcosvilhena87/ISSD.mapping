@@ -3633,20 +3633,36 @@ local function step_bot()
                                 math.sqrt((x-bx)^2+(y-by)^2))
                         end
                     end)
-                    local tx=bx+vx*cfg.projection_frames
-                    local ty=by+vy*cfg.projection_frames
-                    local target,dist=nil,math.huge
+                    -- Identify the earliest plausible CPU recipient along the
+                    -- moving ball, not merely the attacker nearest its final
+                    -- extrapolated point. Reachability is a 2D estimate.
+                    local target,dist,contact_eta=nil,math.huge,nil
+                    local candidate_score=math.huge
+                    local candidate_count=0
                     players.each_cpu(function(base)
                         if base~=config.CPU_FIRST then
                             local x,y=players.xy(base)
-                            local from_ball=math.sqrt((x-bx)^2+(y-by)^2)
-                            local from_target=math.sqrt((x-tx)^2+(y-ty)^2)
                             local from_goal=math.sqrt((x-gx)^2+(y-gy)^2)
-                            if from_ball>=cfg.min_receiver_ball_distance
-                                and from_target<=cfg.max_receiver_projection
-                                and from_goal<=cfg.receiver_goal_radius
-                                and from_target<dist then
-                                target,dist=base,from_target
+                            if from_goal<=cfg.receiver_goal_radius then
+                                for t=cfg.sample_step,cfg.projection_frames,
+                                    cfg.sample_step do
+                                    local lx,ly=bx+vx*t,by+vy*t
+                                    local gap=math.sqrt((x-lx)^2+(y-ly)^2)
+                                    -- Penalize distant opponents who cannot
+                                    -- reach the predicted ball position in time.
+                                    local reach=cfg.contact_radius+
+                                        cfg.estimated_cpu_speed*t
+                                    if gap<=reach then
+                                        candidate_count=candidate_count+1
+                                        local score=t*cfg.eta_weight+
+                                            gap*cfg.offset_weight
+                                        if score<candidate_score then
+                                            target,dist,contact_eta=base,gap,t
+                                            candidate_score=score
+                                        end
+                                        break
+                                    end
+                                end
                             end
                         end
                     end)
@@ -3673,6 +3689,8 @@ local function step_bot()
                                     ..";other_first="..first_other
                                     ..";controlled_first="..controlled_ball
                                     ..";projected_distance="..dist
+                                    ..";contact_eta="..tostring(contact_eta)
+                                    ..";candidate_count="..candidate_count
                                     ..";target_x="..guarded.x
                                     ..";target_y="..guarded.y)
                             end
