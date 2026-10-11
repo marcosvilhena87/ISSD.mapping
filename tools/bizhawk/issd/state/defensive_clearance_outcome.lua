@@ -10,7 +10,9 @@ function M.new(config,players,field_side)
   o.sequence=o.sequence+1
   o.pending={frame=frame,x=x,y=y,carrier=carrier,frames=frames,
     dir=dir,sequence=o.sequence,variant=variant,
-    inactive_frames=0, first_receiver=nil}
+    inactive_frames=0, first_receiver=nil,
+    last_sample_frame=-99999, second_ball_seen=false, second_ball_samples=0,
+    best_my_distance=nil,best_cpu_distance=nil,selected_distance=nil}
   return o.pending.sequence,superseded
  end
  function o.update(state,frame)
@@ -20,6 +22,40 @@ function M.new(config,players,field_side)
   local dir=field_side.attack_direction()
   local progress=dir*(state.ball_x-p.x)
   local kind,reason=nil,nil
+  local second_ball=nil
+  local h=state.ball_height
+  if age>0 and state.game_state==0 and state.possession==0
+      and type(h)=="number" and h<=c.second_ball_close_height
+      and age-p.last_sample_frame>=c.second_ball_sample_frames then
+    local my_dist,cpu_dist,selected=math.huge,math.huge,math.huge
+    players.each_my(function(base)
+      if base~=config.MY_FIRST then
+        local x,y=players.xy(base)
+        local d=math.sqrt((state.ball_x-x)^2+(state.ball_y-y)^2)
+        if d<my_dist then my_dist=d end
+        if base==state.my_base then selected=d end
+      end
+    end)
+    players.each_cpu(function(base)
+      if base~=config.CPU_FIRST then
+        local x,y=players.xy(base)
+        cpu_dist=math.min(cpu_dist,
+          math.sqrt((state.ball_x-x)^2+(state.ball_y-y)^2))
+      end
+    end)
+    p.last_sample_frame=age
+    p.second_ball_samples=p.second_ball_samples+1
+    p.best_my_distance=my_dist
+    p.best_cpu_distance=cpu_dist
+    p.selected_distance=selected
+    if math.min(my_dist,cpu_dist)<=c.second_ball_max_distance then
+      second_ball={sequence=p.sequence,age=age,
+        my_distance=my_dist,cpu_distance=cpu_dist,
+        selected_distance=selected,margin=cpu_dist-my_dist,
+        height=h,first=not p.second_ball_seen}
+      p.second_ball_seen=true
+    end
+  end
   if state.gameplay_active~=1 then p.inactive_frames=p.inactive_frames+1 end
   if state.game_state~=0 then
    kind="UNRESOLVED";reason="GAME_STATE_STOPPAGE"
@@ -41,8 +77,12 @@ function M.new(config,players,field_side)
     receiver=kind=="RECEIVED" and state.possession or nil,
     receiver_x=kind=="RECEIVED" and players.xy(state.possession) or nil,
     inactive_frames=p.inactive_frames,game_state=state.game_state,
+    second_ball_seen=p.second_ball_seen,second_ball_samples=p.second_ball_samples,
+    best_my_distance=p.best_my_distance,best_cpu_distance=p.best_cpu_distance,
+    selected_distance=p.selected_distance,
     gameplay_active=state.gameplay_active}
   end
+  return nil,second_ball
  end
  return o
 end
