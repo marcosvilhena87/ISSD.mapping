@@ -328,6 +328,18 @@ M.DEFENSIVE_CLEARANCE_EXECUTION_VALIDATION = {
     retry_block_frames=180, -- prevent the 80-frame repeated-clearance loop
     emergency_threat=25,
 }
+-- Cardinal A clearance receiver heuristic. Emergency releases stay unchanged.
+-- Projection is provisional; no claim that A targets this receiver.
+M.RECEIVER_AWARE_DEF_CLEARANCE = {
+    enabled=true,
+    emergency_radius=38,
+    projected_travel=120,
+    max_receiver_distance=95,
+    min_arrival_advantage=45,
+    forward_bonus=25,
+    allow_backward=false,
+}
+
 M.CHARGED_DEFENSIVE_CLEARANCE = {
     urgent_radius=38,
     urgent_frames=3, -- prioritize release before tackle under immediate pressure
