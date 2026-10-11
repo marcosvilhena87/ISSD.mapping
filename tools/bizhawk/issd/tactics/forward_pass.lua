@@ -83,6 +83,7 @@ function M.new(config,players,field_side,mem)
         if not zone then diag.reason="INVALID_ZONE";return nil,diag end
         local best=nil
         local best_diagonal=nil
+        local best_eight_way=nil
         local early_cfg=config.EARLY_DEFENSIVE_OUTLET
         local early_enabled=early_defensive and early_cfg and early_cfg.enabled
         local effective_min_forward=early_enabled and zone==1
@@ -206,6 +207,69 @@ function M.new(config,players,field_side,mem)
                             diag.near_longitudinal_lateral=lateral
                             diag.near_longitudinal_clearance=rc
                             diag.near_longitudinal_lane=lane
+                        end
+                    end
+                end
+                -- Fail-safe directional fallback: check where an 8-way
+                -- B input would travel (ray), not just teammate segment.
+                -- Receptor must be near the ray AND beat CPU to that point.
+                local eight=config.EIGHT_WAY_PASS
+                if eight and eight.enabled and zone<3 and not prefer_central
+                    and forward>=eight.min_forward and d<=eight.max_distance
+                    and zone_for(rx,dir)~=nil then
+                    local dirs={{dir,0},{0,-1},{0,1},
+                        {dir,-1},{dir,1}}
+                    for _,vec in ipairs(dirs) do
+                        local ux,uy=vec[1],vec[2]
+                        local norm=math.sqrt(ux*ux+uy*uy)
+                        ux,uy=ux/norm,uy/norm
+                        local projection=(rx-px)*ux+(ry-py)*uy
+                        local off=math.abs((rx-px)*uy-(ry-py)*ux)
+                        local diagonal=vec[1]~=0 and vec[2]~=0
+                        local extra=diagonal and eight.diagonal_extra_margin or 0
+                        if projection>=eight.min_ray_projection
+                            and projection<=eight.max_ray_projection
+                            and off<=eight.max_receiver_ray_offset
+                            and (not diagonal or forward>=effective_min_forward) then
+                            local tx,ty=px+ux*projection,py+uy*projection
+                            local corridor,receiver_space,cpu_eta=math.huge,math.huge,math.huge
+                            players.each_cpu(function(cpu)
+                                if cpu~=config.CPU_FIRST then
+                                    local ex,ey=players.xy(cpu)
+                                    receiver_space=math.min(receiver_space,
+                                        distance(rx,ry,ex,ey))
+                                    local along=(ex-px)*ux+(ey-py)*uy
+                                    if along>=0 and along<=projection then
+                                        corridor=math.min(corridor,
+                                            math.abs((ex-px)*uy-(ey-py)*ux))
+                                    end
+                                    cpu_eta=math.min(cpu_eta,
+                                        distance(tx,ty,ex,ey)/eight.cpu_speed)
+                                end
+                            end)
+                            local my_eta=off/eight.receiver_speed
+                            local margin=(cpu_eta-my_eta)*eight.receiver_speed
+                            if receiver_space>=eight.min_receiver_clearance+extra
+                                and corridor>=eight.min_corridor_clearance+extra
+                                and margin>=eight.min_cpu_arrival_margin+extra then
+                                local candidate={
+                                    receiver=base,carrier=carrier,zone=zone,
+                                    distance=d,forward=forward,lateral=lateral,
+                                    receiver_clearance=receiver_space,
+                                    lane_clearance=corridor,
+                                    direction=vec[1]==0 and (vec[2]<0 and "Up" or "Down")
+                                        or (vec[1]==1 and "Right" or "Left"),
+                                    vertical=diagonal and (vec[2]<0 and "Up" or "Down") or nil,
+                                    button=c.button,intent=diagonal and "EIGHT_WAY_DIAGONAL"
+                                        or "EIGHT_WAY_CARDINAL",
+                                    ray_offset=off,arrival_margin=margin,
+                                    score=forward*c.weight_progress
+                                        +receiver_space*c.weight_clearance
+                                        +corridor*c.weight_lane-off*1.5}
+                                if not best_eight_way or candidate.score>best_eight_way.score then
+                                    best_eight_way=candidate
+                                end
+                            end
                         end
                     end
                 end
@@ -348,6 +412,7 @@ function M.new(config,players,field_side,mem)
             end
         end)
         -- Preserve existing cardinal priority and fallback behavior.
+        if not best and best_eight_way then best=best_eight_way end
         if not best and best_diagonal then best=best_diagonal end
         if best then diag.reason="OUTLET_AVAILABLE"
         elseif diag.candidate_count==0 then diag.reason="NO_TEAMMATE"
@@ -358,7 +423,7 @@ function M.new(config,players,field_side,mem)
     end
     function obj.fire(plan,movement)
         if not plan or obj.cooldown>0 then return false end
-        if plan.intent=="SHORT_DIAGONAL" then
+        if plan.intent=="SHORT_DIAGONAL" or plan.intent=="EIGHT_WAY_DIAGONAL" then
             movement.press_diagonal_button(plan.direction,plan.vertical,plan.button)
         else
             movement.press_direction_button(plan.direction,plan.button)
