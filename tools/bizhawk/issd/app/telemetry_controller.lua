@@ -16,6 +16,7 @@ function M.new(d)
     local restart_origin_tracker=d.restart_origin_tracker
     local gk_throw_outcome_tracker=d.gk_throw_outcome_tracker
     local opportunity_tracker=d.opportunity_tracker
+    local reception_feasibility=d.reception_feasibility
 
 function obj.observe_pass_window_outcome(state)
     for _,ev in ipairs(opportunity_tracker.outcome(report.frame,state)) do
@@ -90,6 +91,26 @@ function obj.observe_five_direction_pass(my_base,outlet,diagnostic)
     local result=five_direction_pass_observer.evaluate(report.frame,my_base,
         outlet and outlet.receiver or nil)
     if not result then return end
+    for _,ev in ipairs(reception_feasibility.evaluate(my_base,result)) do
+        local point=ev.best
+        local details="sector="..tostring(ev.sector)
+            ..";receiver="..tostring(ev.receiver)
+            ..";geometry_eligible="..tostring(ev.geometric_eligible)
+            ..";model_safe="..tostring(ev.kind=="PASS_RECEPTION_FEASIBLE")
+            ..";point_x="..tostring(point and point.point_x)
+            ..";point_y="..tostring(point and point.point_y)
+            ..";my_eta="..tostring(point and point.my_eta)
+            ..";cpu_eta="..tostring(point and point.cpu_eta)
+            ..";ball_eta="..tostring(point and point.ball_eta)
+            ..";eta_advantage="..tostring(point and point.advantage)
+            ..";receiver_distance="..tostring(point and point.miss)
+        report:write(ev.kind,true,{my_base=my_base},
+            "OBSERVE_PASS_RECEPTION",details)
+        if ev.false_negative then
+            report:write("PASS_RECEPTION_GEOMETRY_FALSE_NEGATIVE",true,
+                {my_base=my_base},"OBSERVE_PASS_RECEPTION",details)
+        end
+    end
     for _,ev in ipairs(opportunity_tracker.sample(report.frame,my_base,result,outlet)) do
         report:write(ev.kind,true,{my_base=my_base},"OBSERVE_PASS_WINDOW",
             "receiver="..tostring(ev.receiver)..";sector="..tostring(ev.sector)
