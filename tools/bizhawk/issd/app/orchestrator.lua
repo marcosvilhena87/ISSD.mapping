@@ -218,6 +218,8 @@ local function defensive_dash_step(state)
         and state.my_base~=config.MY_FIRST
         and type(state.dx)=="number" and type(state.dy)=="number"
     local d=active and math.sqrt(state.dx^2+state.dy^2) or nil
+    local pre_shot_cover=active and state.status=="PRE_SHOT_DEFENSIVE_COVER"
+    local stop_distance=pre_shot_cover and cfg.pre_shot_stop_distance or cfg.stop_distance
     local command=movement.last_command or ""
     local directional=command:find("Left",1,true) or command:find("Right",1,true)
         or command:find("Up",1,true) or command:find("Down",1,true)
@@ -232,7 +234,7 @@ local function defensive_dash_step(state)
         elseif reserved then reason="BUTTON_PRIORITY"
         elseif not directional then reason="NO_DIRECTION"
         elseif defensive_dash.base~=state.my_base then reason="PLAYER_CHANGED"
-        elseif d<=cfg.stop_distance then reason="ARRIVED"
+        elseif d<=stop_distance then reason="ARRIVED"
         elseif defensive_dash.remaining<=0 then reason="BURST_LIMIT" end
         local ending=reason~=nil
         if ending then
@@ -260,7 +262,7 @@ local function defensive_dash_step(state)
             defensive_dash.cooldown=cfg.cooldown_frames
         end
     end
-    local approach_threshold=cfg.start_distance
+    local approach_threshold=pre_shot_cover and cfg.pre_shot_start_distance or cfg.start_distance
     if active and (state.status=="MY_UNOWNED_RECOVERY"
         or state.status=="MY_UNOWNED_RECOVERY_LOCK"
         or state.status=="BALL_CONTEST_INTERCEPT"
@@ -268,9 +270,9 @@ local function defensive_dash_step(state)
         or state.status=="MY_FLIGHT_INTERCEPTION") then
         approach_threshold=cfg.recovery_start_distance
     end
-    if active and directional and not reserved and d>=approach_threshold
-        and (defensive_dash.remaining>0 or (defensive_dash.frames==0
-            and defensive_dash.cooldown==0)) then
+    if active and directional and not reserved and d>stop_distance
+        and (defensive_dash.remaining>0 or (d>=approach_threshold
+            and defensive_dash.frames==0 and defensive_dash.cooldown==0)) then
         if defensive_dash.remaining==0 then
             defensive_dash.remaining=cfg.burst_frames
             defensive_dash.frames=0
@@ -282,7 +284,9 @@ local function defensive_dash_step(state)
             defensive_dash.target_y=defensive_dash.start_y+state.dy
             report:write("DEFENSIVE_DASH_START",true,state,"Y",
                 "mode="..tostring(state.status)..";distance="..tostring(d)
-                ..";burst_frames="..tostring(cfg.burst_frames))
+                ..";burst_frames="..tostring(cfg.burst_frames)
+                ..";start_threshold="..tostring(approach_threshold)
+                ..";stop_threshold="..tostring(stop_distance))
         end
         -- Do not replace tackle/switch/contact commands with Y.
         movement.move_toward_button(state.dx,state.dy,cfg.button)
