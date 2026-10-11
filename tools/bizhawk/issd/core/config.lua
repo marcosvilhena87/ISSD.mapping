@@ -67,6 +67,17 @@ M.AERIAL_NATURAL_RECEPTION_GUARD = {
     outcome_frames=90,
 }
 
+-- Conservative prediction for A/X aerial commands away from our goal.
+-- Tune contact bounds against confirmed headers in BizHawk.
+M.VERTICAL_HEADER_REACH_GUARD = {
+    enabled=true,
+    animation_lead_frames=4,
+    min_descent=1,
+    min_contact_height=21,
+    max_contact_height=60,
+    trace_every_frames=4,
+}
+
 M.AERIAL_CONTACT_DECISION = {
     enabled=true, -- experimental, disable to restore earlier behavior
     min_height=21, max_height=80,
