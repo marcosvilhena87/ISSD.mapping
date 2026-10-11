@@ -195,6 +195,7 @@ local aerial_contact_previous_height=nil
 local aerial_contact_last_frame=-99999
 local aerial_contact_attempt_lock=nil
 local aerial_receiver_mark_lock=nil
+local pre_reception_pressure_lock=nil
 local natural_reception_pending=nil
 -- Defensive sprint is deliberately separate from attack dash.
 local defensive_dash={remaining=0,cooldown=0,base=nil,start_distance=nil,mode=nil,
@@ -3660,6 +3661,64 @@ local function step_bot()
             header_last_height=nil
         end
 
+        -- Keep a reachable pre-reception marker committed long enough to
+        -- prevent alternating between the predicted receiver and the ball.
+        do
+            local lock=pre_reception_pressure_lock
+            local cfg=config.PRE_RECEPTION_PRESSURE_LOCK
+            if lock then
+                local age=report.frame-lock.start
+                local reason=nil
+                if gs~=0 or possession~=0 then reason="POSSESSION_OR_STOPPAGE"
+                elseif my_base~=lock.defender then reason="CONTROL_CHANGED"
+                elseif age>=cfg.max_frames then reason="TIMEOUT"
+                elseif not players.valid_cpu_base(lock.receiver) then
+                    reason="RECEIVER_INVALID"
+                end
+                if reason then
+                    report:write("PRE_RECEPTION_PRESSURE_END",true,
+                        {my_base=my_base,possession=possession,game_state=gs},
+                        "OBSERVE_PRESSURE",
+                        "reason="..reason..";receiver="..tostring(lock.receiver)
+                        ..";age="..age)
+                    pre_reception_pressure_lock=nil
+                else
+                    local rx,ry=players.xy(lock.receiver)
+                    local px,py=players.xy(my_base)
+                    local distance=math.sqrt((rx-px)^2+(ry-py)^2)
+                    local bdist=math.sqrt((bx-px)^2+(by-py)^2)
+                    local height=math.max(0,-mem.s16(config.AERIAL_CONTACT.height_addr))
+                    -- Do not sacrifice a directly reachable first ball.
+                    if distance<=cfg.max_pressure_distance
+                        and not (bdist<=cfg.first_ball_radius
+                            and height<=cfg.first_ball_height) then
+                        local gx,gy=players.xy(config.MY_FIRST)
+                        local dx,dy=gx-rx,gy-ry
+                        local norm=math.sqrt(dx*dx+dy*dy)
+                        if norm>1 then
+                            local mx=rx+dx/norm*cfg.goal_side_offset
+                            local my=ry+dy/norm*cfg.goal_side_offset
+                            local guarded=field_boundary.correct(px,py,mx,my)
+                            movement.move_toward(guarded.x-px,guarded.y-py)
+                            local state=make_state(my_base,guarded.x-px,
+                                guarded.y-py,"PRE_RECEPTION_PRESSURE",possession,gs)
+                            state.marked_receiver=lock.receiver
+                            if report.frame%cfg.trace_interval==0 then
+                                report:write("PRE_RECEPTION_PRESSURE_ACTIVE",true,
+                                    state,movement.last_command,
+                                    "receiver="..lock.receiver..";age="..age
+                                    ..";distance="..distance)
+                            end
+                            return attach_live_state(state,
+                                "PRE_RECEPTION_PRESSURE","CPU_UNOWNED_BALL")
+                        end
+                    else
+                        pre_reception_pressure_lock=nil
+                    end
+                end
+            end
+        end
+
         -- Protect the far-side receiver of a cross when a DIFFERENT
         -- teammate is already closer to the first falling ball.
         -- Single-controller safeguard: do not abandon the first contest.
@@ -3745,6 +3804,25 @@ local function step_bot()
                             end
                         end
                     end)
+                    local press_cfg=config.PRE_RECEPTION_PRESSURE_LOCK
+                    if target and press_cfg.enabled and not pre_reception_pressure_lock
+                        and contact_eta and contact_eta<=press_cfg.max_contact_eta then
+                        local rx,ry=players.xy(target)
+                        local px2,py2=players.xy(my_base)
+                        local d=math.sqrt((rx-px2)^2+(ry-py2)^2)
+                        local ball_dist=math.sqrt((bx-px2)^2+(by-py2)^2)
+                        if d<=press_cfg.max_pressure_distance
+                            and ball_dist>press_cfg.first_ball_radius
+                            and first_other+cfg.first_contest_margin<ball_dist then
+                            pre_reception_pressure_lock={
+                                receiver=target,defender=my_base,start=report.frame}
+                            report:write("PRE_RECEPTION_PRESSURE_START",true,
+                                {my_base=my_base,possession=possession,game_state=gs},
+                                "OBSERVE_PRESSURE",
+                                "receiver="..target..";distance="..d
+                                ..";contact_eta="..contact_eta)
+                        end
+                    end
                     if target and first_other+cfg.first_contest_margin
                         <controlled_ball then
                         local rx,ry=players.xy(target)
