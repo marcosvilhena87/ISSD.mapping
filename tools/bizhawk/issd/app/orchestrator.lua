@@ -184,6 +184,7 @@ local critical_shot_lock=nil
 local header_last_frame=-99999
 local defensive_header_pending=nil
 local header_last_height=nil
+local aerial_predict_last_height=nil
 local aerial_contest_lock=nil
 local long_pass_ai_lock=nil
 local aerial_contact_previous_height=nil
@@ -2883,6 +2884,48 @@ local function step_bot()
                 and height<=ac.max_height
                 and goal_dist<=ac.goal_radius
                 and dist<=ac.approach_distance
+            -- Predictive emergency defensive header: account for falling ball
+            -- and defender closure rather than waiting for distance <=38.
+            local hc=config.DEFENSIVE_HEADER
+            local descent=aerial_predict_last_height and
+                (aerial_predict_last_height-height) or 0
+            aerial_predict_last_height=valid and height or nil
+            if valid and hc.predictive_enabled and goal_dist<=hc.goal_radius
+                and height>=hc.predictive_min_height
+                and height<=hc.predictive_max_height
+                and dist<=hc.predictive_max_distance
+                and dist>hc.contact_distance
+                and descent>=hc.predictive_min_descent
+                and report.frame-header_last_frame>=hc.cooldown_frames then
+                local fall_eta=math.max(0,
+                    (height-hc.predictive_contact_height)/descent)
+                local approach_eta=math.max(0,
+                    (dist-hc.contact_distance)/hc.predictive_assumed_closing_speed)
+                if approach_eta<=hc.predictive_max_lead_frames
+                    and fall_eta<=hc.predictive_max_lead_frames
+                    and approach_eta<=fall_eta+2 then
+                    local dx,dy=bx-px,by-py
+                    movement.move_toward_button(dx,dy,"X")
+                    header_last_frame=report.frame
+                    defensive_header_pending={frame=report.frame,base=my_base,
+                        x=bx,y=by,height=height,observed_unowned=false}
+                    local state=make_state(my_base,dx,dy,
+                        "DEFENSIVE_HEADER_ATTEMPT",possession,gs)
+                    state.header_height=height
+                    state.header_distance=dist
+                    state.header_goal_distance=goal_dist
+                    state.header_mode="PREDICTIVE_EARLY"
+                    report:write("DEFENSIVE_HEADER_PREDICTIVE",true,state,
+                        movement.last_command,
+                        "height="..height..";distance="..dist
+                        ..";descent="..descent..";fall_eta="..fall_eta
+                        ..";approach_eta="..approach_eta
+                        ..";controlled_base="..my_base)
+                    return attach_live_state(state,"PREDICTIVE_AERIAL_CLEARANCE",
+                        effective_unowned_team=="CPU"
+                        and "CPU_UNOWNED_BALL" or "MY_UNOWNED_BALL")
+                end
+            end
             if aerial_contest_lock then
                 local lock=aerial_contest_lock
                 local reason=nil
@@ -2910,16 +2953,14 @@ local function step_bot()
                 and aerial_contest_lock.base==my_base
                 and dist>config.DEFENSIVE_HEADER.contact_distance then
                 local dx,dy=bx-px,by-py
-                -- Experimental: neutral input permits the game's own
-                -- player-assist movement (if enabled in match settings).
-                if ac.ai_assist_enabled then movement.stop()
-                else movement.move_toward(dx,dy) end
+                -- Continue closing the gap; neutral AI assist previously
+                -- allowed the aerial clearance window to expire unchallenged.
+                movement.move_toward(dx,dy)
                 local state=make_state(my_base,dx,dy,
-                    ac.ai_assist_enabled and "AERIAL_AI_ASSIST"
-                    or "AERIAL_CONTEST_APPROACH",possession,gs)
+                    "AERIAL_CONTEST_APPROACH",possession,gs)
                 state.header_height=height
                 state.header_distance=dist
-                state.aerial_ai_assist=ac.ai_assist_enabled
+                state.aerial_ai_assist=false
                 return attach_live_state(state,"AERIAL_CONTEST","MY_UNOWNED_BALL")
             end
         end
