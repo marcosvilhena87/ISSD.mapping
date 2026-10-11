@@ -27,13 +27,50 @@ function M.new(config,players,field_side)
   local x,y=players.xy(carrier)
   local sectors={FRONT=nil,LEFT=nil,RIGHT=nil,DIAG_LEFT=nil,DIAG_RIGHT=nil}
   local counts={FRONT=0,LEFT=0,RIGHT=0,DIAG_LEFT=0,DIAG_RIGHT=0}
+  local all_diagonal={}
   players.each_my(function(base)
    if base~=carrier and base~=config.MY_FIRST then
     local tx,ty=players.xy(base)
     local forward=(tx-x)*dir
     local lateral=ty-y
     local dist=math.sqrt((tx-x)^2+lateral*lateral)
-    if dist>=c.min_distance and dist<=c.max_distance and forward>=-c.max_backward then
+    -- Log every teammate as a potential diagonal receiver, including
+    -- players filtered out before sector ranking.
+    local sx=dir/math.sqrt(2)
+    local sy=lateral<0 and -1/math.sqrt(2) or 1/math.sqrt(2)
+    local diag_projection=(tx-x)*sx+lateral*sy
+    local diag_miss=math.abs((tx-x)*sy-lateral*sx)
+    local diag_angle=dist>0 and math.deg(math.acos(
+      math.max(-1,math.min(1,diag_projection/dist)))) or 180
+    local diag_lane=diag_projection>0
+      and clearance(x,y,x+sx*diag_projection,y+sy*diag_projection) or 0
+    local within_range=dist>=c.min_distance and dist<=c.max_distance
+    local within_backward=forward>=-c.max_backward
+    local diag_receiver=math.huge
+    players.each_cpu(function(cpu)
+     if cpu~=config.CPU_FIRST then
+      local cx,cy=players.xy(cpu)
+      diag_receiver=math.min(diag_receiver,
+       math.sqrt((cx-tx)^2+(cy-ty)^2))
+     end
+    end)
+    local diag_reason="OK"
+    if not within_range then diag_reason="DISTANCE"
+    elseif not within_backward then diag_reason="BACKWARD_LIMIT"
+    elseif diag_projection<=0 then diag_reason="BEHIND_RAY"
+    elseif diag_miss>c.command_max_miss then diag_reason="COMMAND_MISS"
+    elseif diag_angle>c.command_max_angle then diag_reason="COMMAND_ANGLE"
+    elseif diag_lane<c.safe_command_lane then diag_reason="COMMAND_LANE"
+    elseif diag_receiver<c.safe_command_receiver then diag_reason="RECEIVER_PRESSURE" end
+    all_diagonal[#all_diagonal+1]={
+      base=base,command=(dir==1 and "Right" or "Left")
+       .."+"..(lateral<0 and "Up" or "Down"),
+      distance=dist,forward=forward,lateral=lateral,
+      projection=diag_projection,miss=diag_miss,angle=diag_angle,
+      lane=diag_lane,receiver_clearance=diag_receiver,
+      eligible=diag_reason=="OK",reason=diag_reason
+    }
+    if within_range and within_backward then
      local sector
      if forward>=c.min_forward and math.abs(lateral)<=forward*c.front_ratio then
       sector="FRONT"
@@ -94,7 +131,8 @@ function M.new(config,players,field_side)
    end
   end
   return {kind="FIVE_DIRECTION_PASS_EVALUATION",best=best,
-   best_sector=best_sector,sectors=sectors,counts=counts,actual=actual}
+   best_sector=best_sector,sectors=sectors,counts=counts,actual=actual,
+   all_diagonal=all_diagonal}
  end
  return o
 end
