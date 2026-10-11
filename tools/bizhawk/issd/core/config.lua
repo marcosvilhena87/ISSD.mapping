@@ -344,6 +344,14 @@ M.PRESSURE_AWARE_PASS_ORIENTATION = {
     low_pressure_frames=12,
 }
 
+-- Bounded turn under critical pressure, never bypass facing confirmation.
+M.PRESSURE_AWARE_ORIENTATION_RECOVERY = {
+    enabled=true,
+    max_turn_frames=3,
+    min_emergency_distance=17,
+    max_closing_per_frame=1.0,
+}
+
 M.DEFENSIVE_PASS_ALIGNMENT = {
     confirm_frames=2, -- consecutive observations of ball ahead
     min_forward_offset=3, max_ball_offset=45,
