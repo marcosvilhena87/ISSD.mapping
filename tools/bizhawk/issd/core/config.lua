@@ -730,6 +730,14 @@ M.DEFENSIVE_DASH = {
     cooldown_frames = 10,
 }
 
+M.CPU_CONTROLLED_BOX_DEFENSE = {
+    enabled=true,
+    goal_radius=270,
+    pressure_distance=100,
+    tackle_probe_distance=38,
+    diagnostic_frames=15,
+}
+
 M.ACTIVE_TACKLE = {
     button = "B",
     max_distance = 28, -- conservative close-contact charge
