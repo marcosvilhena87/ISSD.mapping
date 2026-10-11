@@ -2935,6 +2935,31 @@ local function step_bot()
             end
         end
 
+        -- Contest headers are useful only when an opponent can challenge
+        -- the ball. An uncontested ball should be received, not jumped for.
+        -- Exception: immediate danger at our goal with actual contact reach.
+        local header_gate=config.AERIAL_HEADER_CONTEST_VALIDATION
+        local nearest_header_cpu=math.huge
+        if header_gate.enabled and possession==0 then
+            players.each_cpu(function(base)
+                if base~=config.CPU_FIRST then
+                    local ex,ey=players.xy(base)
+                    nearest_header_cpu=math.min(nearest_header_cpu,
+                        math.sqrt((bx-ex)^2+(by-ey)^2))
+                end
+            end)
+        end
+        local header_own_gx,header_own_gy=players.xy(config.MY_FIRST)
+        local header_goal_distance=math.sqrt(
+            (bx-header_own_gx)^2+(by-header_own_gy)^2)
+        local header_contested=not header_gate.enabled
+            or nearest_header_cpu<=header_gate.opponent_radius
+        local header_emergency=header_goal_distance<=
+            header_gate.emergency_goal_radius
+        local function header_contact_allowed(distance_to_ball)
+            return distance_to_ball<=header_gate.controlled_contact_radius
+                and (header_contested or header_emergency)
+        end
         -- Early commitment to an aerial contest, ahead of ground rebound
         -- arbitration. Never assume R selects a particular defender.
         do
@@ -2974,7 +2999,8 @@ local function step_bot()
                     (dist-hc.contact_distance)/hc.predictive_assumed_closing_speed)
                 if approach_eta<=hc.predictive_max_lead_frames
                     and fall_eta<=hc.predictive_max_lead_frames
-                    and approach_eta<=fall_eta+2 then
+                    and approach_eta<=fall_eta+2
+                    and header_contact_allowed(dist) then
                     local dx,dy=bx-px,by-py
                     movement.move_toward_button(dx,dy,"X")
                     header_last_frame=report.frame
@@ -3012,6 +3038,14 @@ local function step_bot()
                         ..";age="..(report.frame-lock.start))
                     aerial_contest_lock=nil
                 end
+            end
+            if active and not header_contested and not header_emergency
+                and report.frame%header_gate.diagnostic_frames==0 then
+                report:write("HEADER_CONTEST_REJECTED",true,
+                    {possession=possession,game_state=gs,my_base=my_base},
+                    "OBSERVE_AERIAL",
+                    "reason=NO_NEAR_OPPONENT;cpu_distance="..nearest_header_cpu
+                    ..";defender_distance="..dist..";height="..height)
             end
             if active and not aerial_contest_lock then
                 aerial_contest_lock={base=my_base,start=report.frame}
@@ -3054,6 +3088,7 @@ local function step_bot()
             if goal_dist<=hc.goal_radius
                 and height>=hc.min_height and height<=hc.max_height
                 and dist<=hc.contact_distance and descending
+                and header_contact_allowed(dist)
                 and report.frame-header_last_frame>=hc.cooldown_frames then
                 local dx,dy=bx-px,by-py
                 local attack_dir=field_side.attack_direction()
