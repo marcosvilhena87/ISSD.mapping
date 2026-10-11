@@ -296,6 +296,11 @@ function obj.observe_clearance_and_long_pass(state)
                 ..";sequence="..clearance.sequence
                 ..";age="..clearance.age
                 ..";progress="..tostring(clearance.progress)
+                ..";max_travel="..tostring(clearance.max_travel)
+                ..";max_forward="..tostring(clearance.max_forward)
+                ..";max_step_speed="..tostring(clearance.max_step_speed)
+                ..";first_release_age="..tostring(clearance.first_release_age)
+                ..";first_owner="..tostring(clearance.first_owner)
                 ..";start_x="..tostring(clearance.start_x)
                 ..";end_x="..tostring(clearance.end_x)
                 ..";variant="..tostring(clearance.variant)
