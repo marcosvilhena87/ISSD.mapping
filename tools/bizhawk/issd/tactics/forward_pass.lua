@@ -761,7 +761,14 @@ function M.new(config,players,field_side,mem)
                         local ux,uy=v[1]/norm,v[2]/norm
                         local projection=(rx-px)*ux+(ry-py)*uy
                         local offset=math.abs((rx-px)*uy-(ry-py)*ux)
+                        local empirical=config.EMPIRICAL_DEFENSIVE_B_PASS
+                        local empirical_cardinal=empirical and empirical.enabled
+                            and not gk and not diagonal
+                            and (v[3]=="Up" or v[3]=="Left")
                         local max_off=gk and cfg.gk_max_ray_offset or cfg.max_ray_offset
+                        if empirical_cardinal then
+                            max_off=math.max(max_off,empirical.max_cardinal_offset)
+                        end
                         -- GK diagonal only if 8-way B is enabled and its
                         -- projected ray lands sufficiently near the keeper.
                         if projection>=cfg.min_distance and projection<=limit
@@ -781,13 +788,38 @@ function M.new(config,players,field_side,mem)
                                     arrival=math.min(arrival,distance(lx,ly,ex,ey))
                                 end
                             end)
-                            local margin=arrival-offset
+                            -- Wide-offset passes may be assisted by the ROM.
+                            -- Evaluate interception on the actual receiver
+                            -- segment, not only the nominal button ray.
+                            if empirical_cardinal and offset>cfg.max_ray_offset then
+                                lane,arrival=math.huge,math.huge
+                                local dx,dy=rx-px,ry-py
+                                local d2=dx*dx+dy*dy
+                                players.each_cpu(function(cpu)
+                                    if cpu~=config.CPU_FIRST then
+                                        local ex,ey=players.xy(cpu)
+                                        local t=math.max(0,math.min(1,
+                                            ((ex-px)*dx+(ey-py)*dy)/d2))
+                                        lane=math.min(lane,distance(ex,ey,
+                                            px+t*dx,py+t*dy))
+                                        arrival=math.min(arrival,
+                                            distance(ex,ey,rx,ry))
+                                    end
+                                end)
+                            end
+                            local margin=arrival-(empirical_cardinal and
+                                offset>cfg.max_ray_offset and 0 or offset)
                             local rc_min=gk and cfg.gk_min_receiver_clearance
                                 or cfg.min_receiver_clearance
                             local lane_min=gk and cfg.gk_min_lane_clearance
                                 or cfg.min_lane_clearance
                             local margin_min=gk and cfg.gk_min_arrival_margin
                                 or cfg.min_arrival_margin
+                            if empirical_cardinal and offset>cfg.max_ray_offset then
+                                rc_min=math.max(rc_min,empirical.min_receiver_clearance)
+                                lane_min=math.max(lane_min,empirical.min_lane_clearance)
+                                margin_min=math.max(margin_min,empirical.min_arrival_margin)
+                            end
                             if rc>=rc_min and lane>=lane_min
                                 and margin>=margin_min then
                                 local forward=(rx-px)*attack
@@ -826,6 +858,8 @@ function M.new(config,players,field_side,mem)
                                         lateral=math.abs(ry-py),
                                         receiver_clearance=rc,lane_clearance=lane,
                                         arrival_margin=margin,ray_offset=offset,
+                                        empirical_assisted=not not
+                                            (empirical_cardinal and offset>cfg.max_ray_offset),
                                         continuity_bonus=continuity,
                                         source_corridor=source_corridor,
                                         destination_corridor=destination_corridor,
