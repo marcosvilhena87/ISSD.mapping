@@ -2956,9 +2956,14 @@ local function step_bot()
             or nearest_header_cpu<=header_gate.opponent_radius
         local header_emergency=header_goal_distance<=
             header_gate.emergency_goal_radius
-        local function header_contact_allowed(distance_to_ball)
-            return distance_to_ball<=header_gate.controlled_contact_radius
-                and (header_contested or header_emergency)
+        local function header_contact_allowed(distance_to_ball, predictive)
+            local reach=predictive and
+                config.DEFENSIVE_HEADER.predictive_max_distance
+                or header_gate.controlled_contact_radius
+            return (not header_gate.enabled or distance_to_ball<=reach)
+                and (header_contested or
+                    (header_emergency and
+                     distance_to_ball<=header_gate.controlled_contact_radius))
         end
         -- Early commitment to an aerial contest, ahead of ground rebound
         -- arbitration. Never assume R selects a particular defender.
@@ -3000,7 +3005,7 @@ local function step_bot()
                 if approach_eta<=hc.predictive_max_lead_frames
                     and fall_eta<=hc.predictive_max_lead_frames
                     and approach_eta<=fall_eta+2
-                    and header_contact_allowed(dist) then
+                    and header_contact_allowed(dist,true) then
                     local dx,dy=bx-px,by-py
                     movement.move_toward_button(dx,dy,"X")
                     header_last_frame=report.frame
