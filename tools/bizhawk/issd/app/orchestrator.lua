@@ -196,6 +196,7 @@ local aerial_contact_last_frame=-99999
 local aerial_contact_attempt_lock=nil
 local aerial_receiver_mark_lock=nil
 local pre_reception_pressure_lock=nil
+local post_loss_counterpress=nil
 local natural_reception_pending=nil
 -- Defensive sprint is deliberately separate from attack dash.
 local defensive_dash={remaining=0,cooldown=0,base=nil,start_distance=nil,mode=nil,
@@ -426,6 +427,19 @@ local function observe_my_possession_loss(possession,gs,my_base,gameplay_value,l
         gameplay_active.is_active(gameplay_value),gs,
         possession,loss_bx,loss_by)
     for _,loss_ev in ipairs(loss_events) do
+        if loss_ev.kind=="MY_POSSESSION_LOSS_CONFIRMED" then
+            local cfg=config.POST_LOSS_COUNTERPRESS
+            if cfg and cfg.enabled
+                and loss_ev.outcome_class~="FINALIZATION_NOT_AVOIDABLE_LOSS" then
+                post_loss_counterpress={start=report.frame,
+                    carrier=loss_ev.receiver,sequence=loss_ev.sequence}
+                report:write("POST_LOSS_PRESS_START",true,
+                    {possession=possession,game_state=gs,my_base=my_base},
+                    "OBSERVE_COUNTERPRESS",
+                    "sequence="..tostring(loss_ev.sequence)
+                    ..";cpu="..tostring(loss_ev.receiver))
+            end
+        end
         report:write(loss_ev.kind,true,
             {possession=possession,game_state=gs,my_base=my_base,
              gameplay_active=gameplay_value},
@@ -2989,6 +3003,76 @@ local function step_bot()
                     "PLAYER_POSSESSION",
                     "CPU_CONTROLLED"
                 )
+            end
+
+            -- Short counterpress only after confirmed non-shot loss.
+            -- This runs after goalkeeper hold and before regular defense;
+            -- near our goal, existing shot/corridor defenses take precedence.
+            do
+                local cfg=config.POST_LOSS_COUNTERPRESS
+                local lock=post_loss_counterpress
+                if lock and cfg and cfg.enabled then
+                    local age=report.frame-lock.start
+                    local reason=nil
+                    if gs~=0 then reason="STOPPAGE"
+                    elseif age>cfg.max_frames then reason="TIMEOUT"
+                    elseif possession~=lock.carrier then reason="CPU_CHANGED"
+                    end
+                    local cx,cy=players.xy(possession)
+                    local gx,gy=players.xy(config.MY_FIRST)
+                    local goal_distance=math.sqrt((cx-gx)^2+(cy-gy)^2)
+                    if not reason and goal_distance<cfg.min_goal_distance then
+                        reason="GOAL_SAFETY"
+                    end
+                    if not reason and (not players.valid_my_base(my_base)
+                        or my_base==config.MY_FIRST) then
+                        reason="INVALID_DEFENDER"
+                    end
+                    if reason then
+                        report:write("POST_LOSS_PRESS_END",true,
+                            {possession=possession,game_state=gs,my_base=my_base},
+                            "OBSERVE_COUNTERPRESS","reason="..reason
+                            ..";sequence="..tostring(lock.sequence)
+                            ..";age="..age)
+                        post_loss_counterpress=nil
+                    else
+                        local px,py=players.xy(my_base)
+                        local d=math.sqrt((cx-px)^2+(cy-py)^2)
+                        -- A nearby controlled defender only: never switch
+                        -- players or bypass a critical goal-side defense.
+                        if d<=cfg.max_distance then
+                            local attempt=nil
+                            if d<=cfg.tackle_probe_distance then
+                                attempt=active_tackle.plan(my_base,possession,bx,by)
+                            end
+                            if attempt and active_tackle.fire(attempt,movement) then
+                                local state=make_state(my_base,0,0,
+                                    "POST_LOSS_PRESS_TACKLE",possession,gs)
+                                report:write("POST_LOSS_PRESS_TACKLE",true,
+                                    state,movement.last_command,
+                                    "distance="..d..";age="..age)
+                                return attach_live_state(state,
+                                    "POST_LOSS_COUNTERPRESS","CPU_CONTROLLED")
+                            end
+                            movement.move_toward(cx-px,cy-py)
+                            local state=make_state(my_base,cx-px,cy-py,
+                                "POST_LOSS_COUNTERPRESS",possession,gs)
+                            if report.frame%cfg.trace_interval==0 then
+                                report:write("POST_LOSS_PRESS_ACTIVE",true,
+                                    state,movement.last_command,
+                                    "distance="..d..";age="..age)
+                            end
+                            return attach_live_state(state,
+                                "POST_LOSS_COUNTERPRESS","CPU_CONTROLLED")
+                        else
+                            report:write("POST_LOSS_PRESS_END",true,
+                                {possession=possession,game_state=gs,my_base=my_base},
+                                "OBSERVE_COUNTERPRESS",
+                                "reason=OUT_OF_RANGE;distance="..d)
+                            post_loss_counterpress=nil
+                        end
+                    end
+                end
             end
 
             -- CPU individual possession is authoritative: a loose-ball
