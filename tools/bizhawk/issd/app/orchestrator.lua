@@ -1665,6 +1665,28 @@ local function step_bot()
                         support,support_reason=forward_pass.support_plan(my_base)
                         if support then outlet=support end
                     end
+                    -- Only consider the GK if both progressive and regular
+                    -- support routes failed. Keep the existing alignment,
+                    -- confirmed-reception and cooldown pipeline.
+                    if not outlet then
+                        local keeper,reason=forward_pass.gk_backpass_plan(my_base)
+                        if keeper then
+                            outlet=keeper
+                            report:write("GK_BACKPASS_CANDIDATE",true,
+                                {possession=possession,game_state=gs,my_base=my_base},
+                                "SAFE_GK_RECYCLE",
+                                "receiver="..tostring(keeper.receiver)
+                                ..";backward="..tostring(-keeper.forward)
+                                ..";lane="..tostring(keeper.lane_clearance)
+                                ..";space="..tostring(keeper.receiver_clearance)
+                                ..";arrival_margin="..tostring(keeper.arrival_margin))
+                        elseif defensive_hold_age==1 then
+                            report:write("GK_BACKPASS_REJECTED",true,
+                                {possession=possession,game_state=gs,my_base=my_base},
+                                "OBSERVE_GK_RECYCLE",
+                                "reason="..tostring(reason))
+                        end
+                    end
                     if defensive_hold_age==1 or (support and report.frame%15==0) then
                         report:write("DEFENSIVE_SUPPORT_CANDIDATE",true,
                             {possession=possession,game_state=gs,my_base=my_base},
