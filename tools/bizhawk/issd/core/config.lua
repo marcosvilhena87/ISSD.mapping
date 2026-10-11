@@ -84,6 +84,14 @@ M.AERIAL_CONTACT_OUTCOME_GUARD = {
 
 M.DEFENSIVE_HEADER = {
     goal_radius=330,
+    predictive_enabled=true,
+    predictive_max_height=100, -- approach phase: jump before close-contact fallback
+    predictive_min_height=40,
+    predictive_max_distance=56,
+    predictive_min_descent=2,
+    predictive_contact_height=60,
+    predictive_assumed_closing_speed=2.5,
+    predictive_max_lead_frames=9,
     min_height=21,
     max_height=80,
     contact_distance=38,
