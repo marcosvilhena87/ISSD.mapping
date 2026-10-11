@@ -48,7 +48,7 @@ function M.new(config,players,field_side,mem)
     function obj.reset()
         obj.cooldown=0;obj.last_carrier=nil
     end
-    function obj.plan(carrier, prefer_central)
+    function obj.plan(carrier, prefer_central, early_defensive)
         local diag={candidate_count=0,geometry_rejected=0,
             clearance_rejected=0,lane_rejected=0,
             deep_lateral_rejected=0,valid_count=0,reason="NONE",
@@ -83,6 +83,10 @@ function M.new(config,players,field_side,mem)
         if not zone then diag.reason="INVALID_ZONE";return nil,diag end
         local best=nil
         local best_diagonal=nil
+        local early_cfg=config.EARLY_DEFENSIVE_OUTLET
+        local early_enabled=early_defensive and early_cfg and early_cfg.enabled
+        local effective_min_forward=early_enabled and zone==1
+            and math.min(c.min_forward,early_cfg.min_forward) or c.min_forward
         players.each_my(function(base)
             if base~=carrier and base~=config.MY_FIRST then
                 diag.candidate_count=diag.candidate_count+1
@@ -209,7 +213,7 @@ function M.new(config,players,field_side,mem)
                 local direction=nil
                 local intent=nil
                 if zone<3 then
-                    suitable=forward>=c.min_forward
+                    suitable=forward>=effective_min_forward
                         and forward<=c.max_forward
                         and lateral<=c.max_lateral and d<=c.max_distance
                     direction=dir==1 and "Right" or "Left"
@@ -288,6 +292,12 @@ function M.new(config,players,field_side,mem)
                         or c.min_receiver_clearance
                     local min_lc=zone==3 and c.lateral_lane_clearance
                         or c.min_lane_clearance
+                    local early_short=early_enabled and zone==1
+                        and forward<c.min_forward and intent=="PROGRESSIVE"
+                    if early_short then
+                        min_rc=min_rc+early_cfg.min_receiver_extra
+                        min_lc=min_lc+early_cfg.min_lane_extra
+                    end
                     local lateral_safe=intent~="LATERAL"
                         or deep_lateral_safe(px,py,rx,ry,dir,receiver_clearance)
                     if receiver_clearance<min_rc then
@@ -329,6 +339,7 @@ function M.new(config,players,field_side,mem)
                                 lateral=lateral,receiver_clearance=receiver_clearance,
                                 lane_clearance=corridor,score=score,
                                 progress_bonus=progress_bonus,
+                                early_short=early_short,
                                 direction=direction,button=c.button,
                                 carrier=carrier,zone=zone,intent=intent}
                         end
