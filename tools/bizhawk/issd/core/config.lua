@@ -223,6 +223,9 @@ M.MID_ATTACK_TRANSITION = {
 }
 M.DEFENSIVE_CLEARANCE_OUTCOME = {
     max_frames=120,
+    second_ball_max_distance=165,
+    second_ball_close_height=8,
+    second_ball_sample_frames=8,
 }
 
 M.DEFENSIVE_CLEARANCE_SECOND_BALL_RECOVERY = {
