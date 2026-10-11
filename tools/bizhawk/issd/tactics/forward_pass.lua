@@ -502,9 +502,65 @@ function M.new(config,players,field_side,mem)
                 end
             end
         end)
+        -- Guarded, opt-in geometry exception for the manually reproduced
+        -- $0800 -> $0C00 Right+Down+B situation. No global miss relaxation.
+        -- Candidate remains subordinate to every normal safe pass.
+        local empirical_cfg=config.DIAGONAL_PASS_EMPIRICAL_OVERRIDE_GUARDED
+        local empirical_plan=nil
+        if empirical_cfg and empirical_cfg.enabled and not best
+            and not best_eight_way and not best_diagonal
+            and not prefer_central and zone==1
+            and carrier==empirical_cfg.carrier
+            and dir==1 then
+            local rx,ry=players.xy(empirical_cfg.receiver)
+            local dx,dy=rx-px,ry-py
+            local forward=dx*dir
+            local lateral=dy
+            local range=distance(px,py,rx,ry)
+            local projection=(dx+dy)/math.sqrt(2)
+            local miss=math.abs(dy-dx)/math.sqrt(2)
+            local clearance,lane,cpu_eta=math.huge,math.huge,math.huge
+            local landing_x=px+projection/math.sqrt(2)
+            local landing_y=py+projection/math.sqrt(2)
+            players.each_cpu(function(cpu)
+                if cpu~=config.CPU_FIRST then
+                    local ex,ey=players.xy(cpu)
+                    clearance=math.min(clearance,distance(rx,ry,ex,ey))
+                    local along=((ex-px)+(ey-py))/math.sqrt(2)
+                    if along>=0 and along<=projection then
+                        lane=math.min(lane,math.abs((ey-py)-(ex-px))/math.sqrt(2))
+                    end
+                    cpu_eta=math.min(cpu_eta,
+                        distance(landing_x,landing_y,ex,ey)/empirical_cfg.cpu_speed)
+                end
+            end)
+            local arrival_margin=(cpu_eta-miss/empirical_cfg.receiver_speed)
+                *empirical_cfg.receiver_speed
+            if forward>=empirical_cfg.min_forward
+                and forward<=empirical_cfg.max_forward
+                and lateral>=empirical_cfg.min_lateral
+                and lateral<=empirical_cfg.max_lateral
+                and range<=empirical_cfg.max_distance
+                and projection>=empirical_cfg.min_projection
+                and miss<=empirical_cfg.max_command_miss
+                and clearance>=empirical_cfg.min_receiver_clearance
+                and lane>=empirical_cfg.min_lane_clearance
+                and arrival_margin>=empirical_cfg.min_arrival_margin
+                and zone_for(rx,dir)~=nil then
+                empirical_plan={
+                    carrier=carrier,receiver=empirical_cfg.receiver,zone=zone,
+                    direction="Right",vertical="Down",button="B",
+                    intent="EIGHT_WAY_DIAGONAL",empirical_override=true,
+                    distance=range,forward=forward,lateral=lateral,
+                    ray_offset=miss,arrival_margin=arrival_margin,
+                    receiver_clearance=clearance,lane_clearance=lane,
+                    score=clearance+lane+arrival_margin}
+            end
+        end
         -- Preserve existing cardinal priority and fallback behavior.
         if not best and best_eight_way then best=best_eight_way end
         if not best and best_diagonal then best=best_diagonal end
+        if not best and empirical_plan then best=empirical_plan end
         if best then diag.reason="OUTLET_AVAILABLE"
         elseif diag.candidate_count==0 then diag.reason="NO_TEAMMATE"
         elseif diag.geometry_rejected==diag.candidate_count then
