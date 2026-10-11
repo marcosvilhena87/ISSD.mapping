@@ -63,7 +63,7 @@ function M.new(config,players,field_side,mem)
   return {mode="HOLD",reason=reason,age=o.age,threat=threat,total=total,
     hold_streak=o.hold_streak,clear_attempts=o.clear_attempts}
  end
- function o.plan(carrier,pass_cooldown,outlet_diag)
+ function o.plan(carrier,pass_cooldown,outlet_diag,team_stalled)
   if o.carrier~=carrier then o.reset();o.carrier=carrier end
   o.age=o.age+1
   local x,y=players.xy(carrier)
@@ -207,6 +207,10 @@ function M.new(config,players,field_side,mem)
       local score=math.min(safe,c.escape_space_cap)
         +c.escape_forward_weight*forward
         -c.escape_lateral_penalty*math.abs(v.dy)
+      if team_stalled and forward>0
+          and safe>=config.DEFENSIVE_TEAM_STAGNATION.min_forward_clearance then
+       score=score+config.DEFENSIVE_TEAM_STAGNATION.forward_bonus
+      end
       if o.stagnation and forward>0
          and safe>=stall.min_forward_clearance then
        score=score+stall.safe_forward_bonus
