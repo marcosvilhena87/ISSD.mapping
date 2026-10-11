@@ -137,6 +137,16 @@ M.AERIAL_RECEIVER_MARKING_LOCK = {
     trace_interval=6,
 }
 
+-- Close projected receivers can supersede a distant target when the
+-- selected defender is already positioned to pressure them.
+M.AERIAL_RECEIVER_TARGET_REVALIDATION = {
+    enabled=true,
+    near_defender=55,
+    min_distance_gain=65,
+    max_projection_gap=150,
+    projection_tolerance=65,
+}
+
 M.AERIAL_RECEIVER_MARKING = {
     enabled=true,
     min_height=61,
