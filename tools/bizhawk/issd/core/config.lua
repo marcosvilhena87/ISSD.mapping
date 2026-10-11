@@ -298,6 +298,18 @@ M.CHARGED_DEFENSIVE_CLEARANCE = {
     calibration_frames={3,5,7}, -- rotate only non-urgent launches
 }
 
+-- Experimental goalkeeper as a feet-only recycling outlet.
+-- Cardinal B lane only; do not assume an executable diagonal backpass.
+M.GK_BACKPASS_SUPPORT = {
+    enabled=true,
+    min_backward=35,
+    max_backward=240,
+    max_axis_offset=18,
+    min_receiver_clearance=125,
+    min_lane_clearance=85,
+    min_arrival_margin=65,
+}
+
 M.DEFENSIVE_SUPPORT_PASS = {
     enabled=true,
     max_backward=60,
