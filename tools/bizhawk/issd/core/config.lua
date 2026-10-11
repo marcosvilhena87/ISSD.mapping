@@ -224,6 +224,13 @@ M.DEFENSIVE_PASS_OUTCOME = {
     max_frames=75, -- a commanded pass is not a confirmed reception
 }
 
+M.PASS_FACING_PREFERENCE = {
+    enabled=true, min_ball_offset=3, max_ball_offset=45,
+    front_cosine=0.70, back_cosine=-0.50,
+    front_bonus=20, long_back_penalty=30,
+    short_backward_distance=65,
+}
+
 M.DEFENSIVE_PASS_ALIGNMENT = {
     confirm_frames=2, -- consecutive observations of ball ahead
     min_forward_offset=3, max_ball_offset=45,
