@@ -439,6 +439,15 @@ M.DEFENSIVE_EXIT_STAGNATION = {
     safe_forward_bonus=65,
 }
 
+-- Tracks lack of forward gain across receivers, not just one carrier.
+M.DEFENSIVE_TEAM_STAGNATION = {
+    enabled=true,
+    frames=65,
+    min_progress=30,
+    min_forward_clearance=90,
+    forward_bonus=90,
+}
+
 M.DEFENSIVE_EXIT = {
     lateral_min=65, lateral_max=190, max_horizontal=30,
     max_pass_distance=210, receiver_clearance=80,
