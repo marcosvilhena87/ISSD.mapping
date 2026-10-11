@@ -1897,18 +1897,47 @@ local function step_bot()
                             and defensive_clear_execution.carrier==my_base
                         local emergency=exit.threat~=nil
                             and exit.threat<=vc.emergency_threat
-                        if (same_direction or waiting) and not emergency then
-                            movement.stop()
-                            if report.frame%10==0 then
-                                report:write("DEF_CLEAR_RETRY_PREVENTED",true,
-                                    {possession=possession,game_state=gs,my_base=my_base},
-                                    "OBSERVE_CLEAR_EXECUTION",
-                                    "reason="..(waiting and "WAIT_RELEASE"
-                                        or "REPEAT_FAILED_DIRECTION")
-                                    ..";direction="..tostring(exit.direction))
+                        -- A failed release requires a different action, even
+                        -- when the same pressure would bypass the old cooldown.
+                        -- Preserve the emergency path only while a *new*
+                        -- clearance is pending; never auto-repeat a failed lane.
+                        if same_direction or (waiting and not emergency) then
+                            local mx,my=players.xy(my_base)
+                            local best_x,best_y=nil,nil
+                            local best_score=-math.huge
+                            local attack_dir=field_side.attack_direction()
+                            -- Escape laterally rather than reverse into own goal.
+                            for _,delta_y in ipairs({-48,48}) do
+                                local candidate=field_boundary.correct(mx,my,
+                                    mx+attack_dir*12,my+delta_y)
+                                local score=math.huge
+                                players.each_cpu(function(cpu)
+                                    if cpu~=config.CPU_FIRST then
+                                        local ex,ey=players.xy(cpu)
+                                        local d=math.sqrt((candidate.x-ex)^2+
+                                            (candidate.y-ey)^2)
+                                        score=math.min(score,d)
+                                    end
+                                end)
+                                if score>best_score then
+                                    best_score=score
+                                    best_x,best_y=candidate.x,candidate.y
+                                end
                             end
-                            local state=make_state(my_base,0,0,
-                                "DEF_CLEAR_REASSESS",possession,gs)
+                            local dx,dy=best_x-mx,best_y-my
+                            movement.move_toward(dx,dy)
+                            if report.frame%10==0 then
+                                report:write("DEF_CLEAR_FAILURE_RECOVERY",true,
+                                    {possession=possession,game_state=gs,my_base=my_base},
+                                    movement.last_command,
+                                    "reason="..(same_direction and
+                                        "FAILED_SAME_LANE" or "AWAITING_RELEASE")
+                                    ..";old_direction="..tostring(exit.direction)
+                                    ..";threat="..tostring(exit.threat)
+                                    ..";target_x="..best_x..";target_y="..best_y)
+                            end
+                            local state=make_state(my_base,dx,dy,
+                                "DEF_CLEAR_FAILURE_ESCAPE",possession,gs)
                             return attach_live_state(state,"DEFENSIVE_TRANSITION",
                                 "MY_CONTROLLED")
                         end
