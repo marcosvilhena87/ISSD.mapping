@@ -748,6 +748,17 @@ local function step_bot()
         local kind=nil
         if (p.intent=="SHORT_DIAGONAL" or p.intent=="EIGHT_WAY_DIAGONAL") then
             local bx,by=ball.world_xy()
+            -- Calibrate observed ball proximity to all three possible receivers.
+            -- These are proximity measurements, not proof of a completed pass.
+            p.receiver_min_gaps=p.receiver_min_gaps or {}
+            for _,candidate in ipairs({0x0A00,0x0B00,0x0C00}) do
+                if players.valid_my_base(candidate) and candidate~=p.passer then
+                    local rx,ry=players.xy(candidate)
+                    local gap=math.sqrt((bx-rx)^2+(by-ry)^2)
+                    local prior=p.receiver_min_gaps[candidate] or math.huge
+                    p.receiver_min_gaps[candidate]=math.min(prior,gap)
+                end
+            end
             local dx,dy=bx-p.ball_x,by-p.ball_y
             local movement_distance=math.sqrt(dx*dx+dy*dy)
             p.max_ball_displacement=math.max(p.max_ball_displacement or 0,movement_distance)
@@ -808,6 +819,27 @@ local function step_bot()
                     ..";sequence="..p.sequence)
             elseif kind=="PASS_INTERCEPTED" then
                 defensive_pass_chain=nil
+            end
+            if p.intent=="SHORT_DIAGONAL" or p.intent=="EIGHT_WAY_DIAGONAL" then
+                local gaps=p.receiver_min_gaps or {}
+                local actual=kind=="PASS_RECEIVED" and possession or nil
+                report:write("DIAGONAL_ACTUAL_RECEIVER_CALIBRATION",true,
+                    {possession=possession,game_state=gs,my_base=my_base},
+                    "OBSERVE_RECEIVER",
+                    "sequence="..p.sequence
+                    ..";expected_receiver="..tostring(p.receiver)
+                    ..";actual_owner="..tostring(possession)
+                    ..";actual_my_receiver="..tostring(actual)
+                    ..";outcome="..tostring(kind)
+                    ..";reason="..tostring(reason)
+                    ..";passer="..tostring(p.passer)
+                    ..";direction="..tostring(p.direction)
+                    ..";vertical="..tostring(p.vertical)
+                    ..";age="..tostring(age)
+                    ..";min_gap_0A00="..tostring(gaps[0x0A00])
+                    ..";min_gap_0B00="..tostring(gaps[0x0B00])
+                    ..";min_gap_0C00="..tostring(gaps[0x0C00])
+                    ..";max_displacement="..tostring(p.max_ball_displacement))
             end
             report:write("DEFENSIVE_"..kind,true,
                 {possession=possession,game_state=gs,my_base=my_base},
