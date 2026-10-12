@@ -683,7 +683,8 @@ M.EMPIRICAL_UP_B_FACING_BYPASS={
     enabled=false,
     max_ball_distance=13,
     max_ball_axis_offset=12,
-    min_cpu_distance=45,
+    -- Explicit experimental minimum; separate from latency confirmation.
+    min_cpu_distance=38,
 }
 
 M.DIAGONAL_PASS_EXECUTION_LATENCY_GUARD={
