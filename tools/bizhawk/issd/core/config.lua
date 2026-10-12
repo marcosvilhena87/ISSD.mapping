@@ -689,6 +689,18 @@ M.DIAGONAL_PASS_EMPIRICAL_OVERRIDE_GUARDED = {
     min_lane_clearance=65,
     min_arrival_margin=28,
     receiver_speed=4, cpu_speed=5,
+    -- Opt-in narrowly matched to one documented, successful UP+B replay.
+    -- Default OFF until the same trajectory is repeated in several states.
+    reception_pocket={
+        enabled=false, receiver=0x0B00,
+        carrier_x=83, carrier_y=296, max_carrier_offset=12,
+        forward=142, abs_lateral=20,
+        max_forward_delta=14, max_lateral_delta=12,
+        min_carrier_cpu_gap=24,
+        min_receiver_clearance=55,
+        min_lane_clearance=32,
+        min_arrival_margin=-35,
+    },
 }
 
 M.EIGHT_WAY_PASS = {
