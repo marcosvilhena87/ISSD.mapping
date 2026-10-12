@@ -1983,7 +1983,7 @@ local function step_bot()
                             {my_base=my_base,possession=possession,game_state=gs},
                             "OBSERVE_COOLDOWN",
                             "carrier="..tostring(my_base)
-                            ..";remaining="..tostring(forward_pass.cooldown)
+                            ..";remaining="..tostring(forward_pass.cooldown_for(my_base))
                             ..";hold_age="..tostring(defensive_hold_age)
                             ..";receiver_candidate=3072"
                             ..";tested_commands=Left+Up+B|Left+Down+B")
