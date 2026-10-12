@@ -1124,7 +1124,7 @@ function M.new(config,players,field_side,mem)
           score=clearance+lane+margin-miss},diagnostic
     end
     function obj.fire(plan,movement)
-        if not plan or obj.cooldown_for(carrier)>0 then return false end
+        if not plan or obj.cooldown_for(plan.carrier)>0 then return false end
         if plan.intent=="SHORT_DIAGONAL" or plan.intent=="EIGHT_WAY_DIAGONAL"
             or ((plan.intent=="FINAL_THIRD_PRESSURE_SUPPORT"
                 or plan.intent=="DEFENSIVE_SUPPORT_8WAY"
