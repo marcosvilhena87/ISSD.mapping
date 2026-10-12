@@ -592,29 +592,43 @@ function M.new(config,players,field_side,mem)
                     -- empirical pocket. Never bypass zone/geometry or nearby
                     -- CPU-on-ball checks; keep standard filters for all others.
                     local pocket=empirical_cfg.reception_pocket
-                    local empirical_receipt=false
-                    if pocket and pocket.enabled and base==pocket.receiver
-                        and entry.vertical=="Up"
-                        and math.abs(px-pocket.carrier_x)<=pocket.max_carrier_offset
-                        and math.abs(py-pocket.carrier_y)<=pocket.max_carrier_offset
-                        and math.abs(forward-pocket.forward)<=pocket.max_forward_delta
-                        and math.abs(sy*lateral-pocket.abs_lateral)<=pocket.max_lateral_delta
-                        and range<=empirical_cfg.max_distance
-                        and zone_for(rx,dir)~=nil
-                        and miss<=entry.max_command_miss
-                        and clearance>=pocket.min_receiver_clearance
-                        and lane>=pocket.min_lane_clearance
-                        and margin>=pocket.min_arrival_margin then
-                        local nearest_ball_cpu=math.huge
-                        players.each_cpu(function(cpu)
-                            if cpu~=config.CPU_FIRST then
-                                local ex,ey=players.xy(cpu)
-                                nearest_ball_cpu=math.min(nearest_ball_cpu,
-                                    distance(px,py,ex,ey))
-                            end
-                        end)
-                        empirical_receipt=nearest_ball_cpu>=pocket.min_carrier_cpu_gap
+                    local pocket_gates={}
+                    local nearest_ball_cpu=math.huge
+                    players.each_cpu(function(cpu)
+                        if cpu~=config.CPU_FIRST then
+                            local ex,ey=players.xy(cpu)
+                            nearest_ball_cpu=math.min(nearest_ball_cpu,
+                                distance(px,py,ex,ey))
+                        end
+                    end)
+                    local function gate(name,ok)
+                        if not ok then pocket_gates[#pocket_gates+1]=name end
                     end
+                    local pocket_target=pocket and base==pocket.receiver
+                        and entry.vertical=="Up"
+                    local empirical_receipt=false
+                    if pocket_target then
+                        gate("DISABLED",pocket.enabled)
+                        gate("CARRIER_POSITION_X",
+                            math.abs(px-pocket.carrier_x)<=pocket.max_carrier_offset)
+                        gate("CARRIER_POSITION_Y",
+                            math.abs(py-pocket.carrier_y)<=pocket.max_carrier_offset)
+                        gate("FORWARD_GEOMETRY",
+                            math.abs(forward-pocket.forward)<=pocket.max_forward_delta)
+                        gate("LATERAL_GEOMETRY",
+                            math.abs(sy*lateral-pocket.abs_lateral)<=pocket.max_lateral_delta)
+                        gate("DISTANCE",range<=empirical_cfg.max_distance)
+                        gate("INVALID_RECEIVER_ZONE",zone_for(rx,dir)~=nil)
+                        gate("COMMAND_MISS",miss<=entry.max_command_miss)
+                        gate("RECEIVER_PRESSURE",clearance>=pocket.min_receiver_clearance)
+                        gate("CORRIDOR_BLOCKED",lane>=pocket.min_lane_clearance)
+                        gate("ARRIVAL_MARGIN",margin>=pocket.min_arrival_margin)
+                        gate("CARRIER_PRESSURE",nearest_ball_cpu>=pocket.min_carrier_cpu_gap)
+                        empirical_receipt=#pocket_gates==0
+                    end
+                    local pocket_rejections=not pocket_target and "NOT_TARGET"
+                        or #pocket_gates==0 and "NONE"
+                        or table.concat(pocket_gates,"|")
                     if empirical_receipt then
                         reject="ACCEPTED_EMPIRICAL_POCKET"
                         failed={}
@@ -624,7 +638,11 @@ function M.new(config,players,field_side,mem)
                     local score=clearance+lane+margin-miss*0.5
                     diag.empirical_candidates[#diag.empirical_candidates+1]={
                         status=accepted and "SELECTED" or "REJECTED",
-                        reason=reject,failures=failures,empirical_receipt=empirical_receipt,carrier=carrier,receiver=base,
+                        reason=reject,failures=failures,empirical_receipt=empirical_receipt,
+                        pocket_enabled=pocket and pocket.enabled or false,
+                        pocket_rejections=pocket_rejections,
+                        carrier_x=px,carrier_y=py,carrier_cpu_gap=nearest_ball_cpu,
+                        carrier=carrier,receiver=base,
                         direction="Right",vertical=entry.vertical,
                         forward=forward,lateral=lateral,distance=range,
                         projection=projection,miss=miss,clearance=clearance,
