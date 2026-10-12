@@ -507,83 +507,92 @@ function M.new(config,players,field_side,mem)
         -- Candidate remains subordinate to every normal safe pass.
         local empirical_cfg=config.DIAGONAL_PASS_EMPIRICAL_OVERRIDE_GUARDED
         local empirical_plan=nil
-        diag.empirical_override={status="NOT_ELIGIBLE",reason="PRIORITY_OR_CONTEXT",
-            carrier=carrier,receiver=empirical_cfg and empirical_cfg.receiver}
-        if empirical_cfg and empirical_cfg.enabled and not best
-            and not best_eight_way and not best_diagonal
-            and not prefer_central and zone==1
-            and carrier==empirical_cfg.carrier
-            and dir==1 then
-            diag.empirical_override.status="EVALUATED"
-            local rx,ry=players.xy(empirical_cfg.receiver)
-            local dx,dy=rx-px,ry-py
-            local forward=dx*dir
-            local lateral=dy
-            local range=distance(px,py,rx,ry)
-            local projection=(dx+dy)/math.sqrt(2)
-            local miss=math.abs(dy-dx)/math.sqrt(2)
-            local clearance,lane,cpu_eta=math.huge,math.huge,math.huge
-            local landing_x=px+projection/math.sqrt(2)
-            local landing_y=py+projection/math.sqrt(2)
-            players.each_cpu(function(cpu)
-                if cpu~=config.CPU_FIRST then
-                    local ex,ey=players.xy(cpu)
-                    clearance=math.min(clearance,distance(rx,ry,ex,ey))
-                    local along=((ex-px)+(ey-py))/math.sqrt(2)
-                    if along>=0 and along<=projection then
-                        lane=math.min(lane,math.abs((ey-py)-(ex-px))/math.sqrt(2))
+        diag.empirical_candidates={}
+        local enabled=empirical_cfg and empirical_cfg.enabled
+        local context_ok=enabled and not best and not best_eight_way
+            and not best_diagonal and not prefer_central and zone==1
+            and carrier==empirical_cfg.carrier and dir==1
+        if context_ok then
+            for _,entry in ipairs(empirical_cfg.receivers or {}) do
+                local base=entry.receiver
+                if players.valid_my_base(base) and base~=carrier
+                    and base~=config.MY_FIRST then
+                    local rx,ry=players.xy(base)
+                    local dx,dy=rx-px,ry-py
+                    local forward=dx*dir
+                    local lateral=dy
+                    local range=distance(px,py,rx,ry)
+                    local sy=entry.vertical=="Up" and -1 or 1
+                    local projection=(dx+sy*dy)/math.sqrt(2)
+                    local miss=math.abs(dy-sy*dx)/math.sqrt(2)
+                    local clearance,lane,cpu_eta=math.huge,math.huge,math.huge
+                    local lx=px+projection/math.sqrt(2)
+                    local ly=py+sy*projection/math.sqrt(2)
+                    players.each_cpu(function(cpu)
+                        if cpu~=config.CPU_FIRST then
+                            local ex,ey=players.xy(cpu)
+                            clearance=math.min(clearance,distance(rx,ry,ex,ey))
+                            local along=((ex-px)+sy*(ey-py))/math.sqrt(2)
+                            if along>=0 and along<=projection then
+                                lane=math.min(lane,
+                                    math.abs((ey-py)-sy*(ex-px))/math.sqrt(2))
+                            end
+                            cpu_eta=math.min(cpu_eta,
+                                distance(lx,ly,ex,ey)/empirical_cfg.cpu_speed)
+                        end
+                    end)
+                    local margin=(cpu_eta-miss/empirical_cfg.receiver_speed)
+                        *empirical_cfg.receiver_speed
+                    local reject="ACCEPTED"
+                    if forward<empirical_cfg.min_forward
+                        or forward>empirical_cfg.max_forward
+                        or sy*lateral<entry.min_lateral
+                        or sy*lateral>entry.max_lateral
+                        or range>empirical_cfg.max_distance
+                        or projection<empirical_cfg.min_projection then
+                        reject="GEOMETRY"
+                    elseif miss>entry.max_command_miss then
+                        reject="COMMAND_MISS"
+                    elseif clearance<empirical_cfg.min_receiver_clearance then
+                        reject="RECEIVER_PRESSURE"
+                    elseif lane<empirical_cfg.min_lane_clearance then
+                        reject="CORRIDOR_BLOCKED"
+                    elseif margin<empirical_cfg.min_arrival_margin then
+                        reject="ARRIVAL_MARGIN"
+                    elseif zone_for(rx,dir)==nil then
+                        reject="INVALID_RECEIVER_ZONE"
                     end
-                    cpu_eta=math.min(cpu_eta,
-                        distance(landing_x,landing_y,ex,ey)/empirical_cfg.cpu_speed)
+                    local accepted=reject=="ACCEPTED"
+                    local score=clearance+lane+margin-miss*0.5
+                    diag.empirical_candidates[#diag.empirical_candidates+1]={
+                        status=accepted and "SELECTED" or "REJECTED",
+                        reason=reject,carrier=carrier,receiver=base,
+                        direction="Right",vertical=entry.vertical,
+                        forward=forward,lateral=lateral,distance=range,
+                        projection=projection,miss=miss,clearance=clearance,
+                        lane=lane,arrival_margin=margin,score=score}
+                    if accepted and (not empirical_plan
+                        or score>empirical_plan.score) then
+                        empirical_plan={
+                            carrier=carrier,receiver=base,zone=zone,
+                            direction="Right",vertical=entry.vertical,button="B",
+                            intent="EIGHT_WAY_DIAGONAL",empirical_override=true,
+                            distance=range,forward=forward,lateral=math.abs(lateral),
+                            ray_offset=miss,arrival_margin=margin,
+                            receiver_clearance=clearance,lane_clearance=lane,
+                            score=score}
+                    end
                 end
-            end)
-            local arrival_margin=(cpu_eta-miss/empirical_cfg.receiver_speed)
-                *empirical_cfg.receiver_speed
-            local reject="ACCEPTED"
-            if forward<empirical_cfg.min_forward or forward>empirical_cfg.max_forward
-                or lateral<empirical_cfg.min_lateral
-                or lateral>empirical_cfg.max_lateral
-                or range>empirical_cfg.max_distance
-                or projection<empirical_cfg.min_projection then
-                reject="GEOMETRY"
-            elseif miss>empirical_cfg.max_command_miss then
-                reject="COMMAND_MISS"
-            elseif clearance<empirical_cfg.min_receiver_clearance then
-                reject="RECEIVER_PRESSURE"
-            elseif lane<empirical_cfg.min_lane_clearance then
-                reject="CORRIDOR_BLOCKED"
-            elseif arrival_margin<empirical_cfg.min_arrival_margin then
-                reject="ARRIVAL_MARGIN"
-            elseif zone_for(rx,dir)==nil then
-                reject="INVALID_RECEIVER_ZONE"
-            end
-            diag.empirical_override={
-                status=reject=="ACCEPTED" and "SELECTED" or "REJECTED",
-                reason=reject,carrier=carrier,receiver=empirical_cfg.receiver,
-                forward=forward,lateral=lateral,distance=range,
-                projection=projection,miss=miss,clearance=clearance,
-                lane=lane,arrival_margin=arrival_margin}
-            if forward>=empirical_cfg.min_forward
-                and forward<=empirical_cfg.max_forward
-                and lateral>=empirical_cfg.min_lateral
-                and lateral<=empirical_cfg.max_lateral
-                and range<=empirical_cfg.max_distance
-                and projection>=empirical_cfg.min_projection
-                and miss<=empirical_cfg.max_command_miss
-                and clearance>=empirical_cfg.min_receiver_clearance
-                and lane>=empirical_cfg.min_lane_clearance
-                and arrival_margin>=empirical_cfg.min_arrival_margin
-                and zone_for(rx,dir)~=nil then
-                empirical_plan={
-                    carrier=carrier,receiver=empirical_cfg.receiver,zone=zone,
-                    direction="Right",vertical="Down",button="B",
-                    intent="EIGHT_WAY_DIAGONAL",empirical_override=true,
-                    distance=range,forward=forward,lateral=lateral,
-                    ray_offset=miss,arrival_margin=arrival_margin,
-                    receiver_clearance=clearance,lane_clearance=lane,
-                    score=clearance+lane+arrival_margin}
             end
         end
+        diag.empirical_override={
+            status=not enabled and "NOT_ELIGIBLE"
+                or not context_ok and "NOT_ELIGIBLE"
+                or empirical_plan and "SELECTED" or "REJECTED",
+            reason=not enabled and "DISABLED"
+                or not context_ok and "PRIORITY_OR_CONTEXT"
+                or empirical_plan and "ACCEPTED" or "NO_SAFE_CANDIDATE",
+            receiver=empirical_plan and empirical_plan.receiver}
         -- Preserve existing cardinal priority and fallback behavior.
         if not best and best_eight_way then best=best_eight_way end
         if not best and best_diagonal then best=best_diagonal end
