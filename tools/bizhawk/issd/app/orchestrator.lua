@@ -784,7 +784,11 @@ local function step_bot()
                     ..";owner="..tostring(possession)
                     ..";game_state="..tostring(gs)
                     ..";previous_game_state="..tostring(p.previous_gs)
-                    ..";max_displacement="..tostring(p.max_ball_displacement))
+                    ..";max_displacement="..tostring(p.max_ball_displacement)
+                    ..";flight_steps="..tostring(p.flight_steps or 0)
+                    ..";flight_mean_step="..tostring(p.flight_steps and p.flight_steps>0
+                        and p.flight_total/p.flight_steps or 0)
+                    ..";flight_max_step="..tostring(p.flight_max or 0))
             end
             p.previous_gs=gs
         end
