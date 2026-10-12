@@ -691,6 +691,17 @@ M.DIAGONAL_PASS_EXECUTION_LATENCY_GUARD={
     enabled=false, receiver=0x0B00, min_cpu_distance=45,
 }
 
+-- Opt-in, narrowly scoped Left+Up+B from $0A00 to $0C00.
+-- Initial limits are hypotheses, not calibrated ROM trajectories.
+M.POST_DIAGONAL_BACKWARD_SUPPORT={
+    enabled=false, carrier=0x0A00,receiver=0x0C00,
+    min_left=12,max_left=190,min_up=12,max_up=190,
+    max_distance=220,min_projection=25,max_command_miss=35,
+    min_receiver_clearance=65,min_lane_clearance=65,
+    min_arrival_margin=28,min_carrier_cpu_gap=18,
+    receiver_speed=4,cpu_speed=5,
+}
+
 M.DIAGONAL_PASS_EMPIRICAL_OVERRIDE_GUARDED = {
     enabled=true,
     carrier=0x0800,
