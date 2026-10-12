@@ -1768,7 +1768,34 @@ local function step_bot()
                             and plan.receiver==latency_cfg.receiver
                             and nearest>=latency_cfg.min_cpu_distance
                         local required_confirm=fast_empirical and 1 or cfg.confirm_frames
-                        a.confirmed=facing and a.confirmed+1 or 0
+                        -- This is a ball-relative proxy, not ROM facing.
+                        -- In the narrowly calibrated UP+B reception pocket,
+                        -- permit direct execution only when the live planner
+                        -- has reapproved the exact action and ball is held close.
+                        local bypass_cfg=config.EMPIRICAL_UP_B_FACING_BYPASS
+                        local close_ball=math.sqrt(dx*dx+dy*dy)
+                        local bypass=not facing and bypass_cfg and bypass_cfg.enabled
+                            and fast_empirical
+                            and my_base==0x0800 and possession==my_base
+                            and plan.direction=="Right" and plan.vertical=="Up"
+                            and plan.button=="B" and plan.receiver==0x0B00
+                            and plan.empirical_override and plan.empirical_receipt
+                            and close_ball<=bypass_cfg.max_ball_distance
+                            and math.abs(dx)<=bypass_cfg.max_ball_axis_offset
+                            and math.abs(dy)<=bypass_cfg.max_ball_axis_offset
+                            and nearest>=bypass_cfg.min_cpu_distance
+                        if bypass then
+                            report:write("DIAGONAL_FACING_PROXY_BYPASSED",true,
+                                {my_base=my_base,possession=possession,game_state=gs},
+                                "OBSERVE_EMPIRICAL_BYPASS",
+                                "receiver="..tostring(plan.receiver)
+                                ..";ball_distance="..tostring(close_ball)
+                                ..";nearest_cpu="..tostring(nearest)
+                                ..";age="..tostring(report.frame-a.start))
+                            a.confirmed=required_confirm
+                        else
+                            a.confirmed=facing and a.confirmed+1 or 0
+                        end
                         -- Passive diagnostics: ball-relative geometry is only
                         -- a proxy for facing, not the ROM's facing register.
                         -- Capture each frame including the terminal one.
