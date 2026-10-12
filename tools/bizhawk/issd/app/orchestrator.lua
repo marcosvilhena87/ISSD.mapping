@@ -1882,6 +1882,7 @@ local function step_bot()
                                 e.direction.."+"..e.vertical.."+B",
                                 "status="..tostring(e.status)
                                 ..";reason="..tostring(e.reason)
+                                ..";failed_filters="..tostring(e.failures)
                                 ..";receiver="..tostring(e.receiver)
                                 ..";miss="..tostring(e.miss)
                                 ..";lane="..tostring(e.lane)
