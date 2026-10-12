@@ -102,9 +102,17 @@ local function run()
      tx and string.format("%.3f",nearest_cpu(tx,ty)) or "",signal}
     f:write(table.concat(values,",").."\n")
    end
-   local outcome=first_target and "TARGET_RECEIVED"
-     or first_cpu and "CPU_INTERCEPTED"
-     or first_other_my and "OTHER_MY_RECEIVED" or "UNRESOLVED"
+   local earliest=math.huge
+   local outcome="UNRESOLVED"
+   for _,candidate in ipairs({
+       {first_target,"TARGET_RECEIVED"},
+       {first_cpu,"CPU_INTERCEPTED"},
+       {first_other_my,"OTHER_MY_RECEIVED"}
+   }) do
+    if candidate[1] and candidate[1]<earliest then
+     earliest=candidate[1];outcome=candidate[2]
+    end
+   end
    summaries[#summaries+1]={action.id,outcome,first_target or "",
      first_cpu or "",first_other_my or "",first_state_exit or "",
      action.target and string.format("%.3f",min_target) or "",
