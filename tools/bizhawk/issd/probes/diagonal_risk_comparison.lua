@@ -8,6 +8,7 @@ end
 local D=dir()
 local cfg=dofile(D.."../core/config.lua")
 local mem=dofile(D.."../core/memory.lua").new(cfg)
+local ReplaySnapshot=dofile(D.."../core/replay_snapshot.lua")
 local actions={
  {id="UP_B",pad={Right=true,Up=true,B=true},held=1,target=0x0B00},
  {id="DOWN_B",pad={Right=true,Down=true,B=true},held=1,target=0x0C00},
@@ -34,19 +35,15 @@ local function nearest_cpu(x,y)
  return d
 end
 local function run()
- if not savestate or not savestate.create or not savestate.save or not savestate.load then
-  error("BizHawk in-memory savestate unavailable")
- end
  if mem.u16(cfg.ADDR.game_state)~=0 or owner()~=0x0800 then
   error("Load active gameplay with $0800 individually possessing the ball")
  end
- local ss=savestate.create()
- savestate.save(ss)
+ local snapshot=ReplaySnapshot.capture()
  local f=assert(io.open(FILE,"w"))
  f:write("action,frame,held_frames,ball_x,ball_y,ball_displacement,owner,team,game_state,target,target_distance,nearest_cpu_ball,nearest_cpu_target,signal\n")
  local ok,err=pcall(function()
   for _,action in ipairs(actions) do
-   savestate.load(ss)
+   snapshot.restore()
    local ox,oy=ball()
    for frame=0,FRAMES do
     if frame>0 then
@@ -72,7 +69,8 @@ local function run()
   end
  end)
  joypad.set({},cfg.PLAYER)
- savestate.load(ss)
+ snapshot.restore()
+ snapshot.close()
  f:close()
  if not ok then error(err) end
  print("A/B CSV: "..FILE)

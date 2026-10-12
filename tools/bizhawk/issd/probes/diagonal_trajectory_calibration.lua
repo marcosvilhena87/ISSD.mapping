@@ -9,6 +9,7 @@ local DIR=script_dir()
 local cfg=dofile(DIR.."../core/config.lua")
 local Memory=dofile(DIR.."../core/memory.lua")
 local mem=Memory.new(cfg)
+local ReplaySnapshot=dofile(DIR.."../core/replay_snapshot.lua")
 local CARRIER=0x0800
 local RECEIVER=0x0C00
 local OBSERVE_FRAMES=120
@@ -35,8 +36,6 @@ local function nearest_cpu(x,y)
  return best,minimum
 end
 local function run()
- if not savestate or not savestate.create or not savestate.save
-    or not savestate.load then error("In-memory savestates unavailable") end
  local bx,by,owner,team,gs=sample()
  if owner~=CARRIER or gs~=0 then
   error("Load active match state with $0800 in individual possession") end
@@ -44,8 +43,7 @@ local function run()
  local dx,dy=rx-bx,ry-by
  local projection=(dx+dy)/math.sqrt(2)
  local theoretical_miss=math.abs(dy-dx)/math.sqrt(2)
- local ss=savestate.create()
- savestate.save(ss)
+ local snapshot=ReplaySnapshot.capture()
  local f=assert(io.open(OUTFILE,"w"))
  f:write("frame,ball_x,ball_y,ball_dx,ball_dy,owner,team,game_state,receiver_x,receiver_y,receiver_distance,nearest_cpu,nearest_cpu_ball_distance,nearest_cpu_receiver_distance,predicted_45deg_miss,predicted_projection,owner_signal_class\n")
  local function log(frame)
@@ -76,7 +74,8 @@ local function run()
   end
  end)
  joypad.set({},cfg.PLAYER)
- savestate.load(ss)
+ snapshot.restore()
+ snapshot.close()
  f:close()
  if not ok then error(err) end
  print("Trajectory audit written to "..OUTFILE)
