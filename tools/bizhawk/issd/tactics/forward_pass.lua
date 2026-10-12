@@ -562,11 +562,37 @@ function M.new(config,players,field_side,mem)
                     elseif zone_for(rx,dir)==nil then
                         reject="INVALID_RECEIVER_ZONE"
                     end
+                    local failed={}
+                    if forward<empirical_cfg.min_forward
+                        or forward>empirical_cfg.max_forward
+                        or sy*lateral<entry.min_lateral
+                        or sy*lateral>entry.max_lateral
+                        or range>empirical_cfg.max_distance
+                        or projection<empirical_cfg.min_projection then
+                        failed[#failed+1]="GEOMETRY"
+                    end
+                    if miss>entry.max_command_miss then
+                        failed[#failed+1]="COMMAND_MISS"
+                    end
+                    if clearance<empirical_cfg.min_receiver_clearance then
+                        failed[#failed+1]="RECEIVER_PRESSURE"
+                    end
+                    if lane<empirical_cfg.min_lane_clearance then
+                        failed[#failed+1]="CORRIDOR_BLOCKED"
+                    end
+                    if margin<empirical_cfg.min_arrival_margin then
+                        failed[#failed+1]="ARRIVAL_MARGIN"
+                    end
+                    if zone_for(rx,dir)==nil then
+                        failed[#failed+1]="INVALID_RECEIVER_ZONE"
+                    end
+                    local failures=#failed==0 and "NONE"
+                        or table.concat(failed,"|")
                     local accepted=reject=="ACCEPTED"
                     local score=clearance+lane+margin-miss*0.5
                     diag.empirical_candidates[#diag.empirical_candidates+1]={
                         status=accepted and "SELECTED" or "REJECTED",
-                        reason=reject,carrier=carrier,receiver=base,
+                        reason=reject,failures=failures,carrier=carrier,receiver=base,
                         direction="Right",vertical=entry.vertical,
                         forward=forward,lateral=lateral,distance=range,
                         projection=projection,miss=miss,clearance=clearance,
