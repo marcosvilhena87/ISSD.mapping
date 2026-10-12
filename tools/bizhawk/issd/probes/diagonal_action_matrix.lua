@@ -11,6 +11,7 @@ local DIR=script_dir()
 local config=dofile(DIR.."../core/config.lua")
 local Memory=dofile(DIR.."../core/memory.lua")
 local mem=Memory.new(config)
+local ReplaySnapshot=dofile(DIR.."../core/replay_snapshot.lua")
 local directions={
  {"Right","Up"},{"Right","Down"},{"Left","Up"},{"Left","Down"}
 }
@@ -56,16 +57,12 @@ local function tick(pad)
  emu.frameadvance()
 end
 local function run()
- if not savestate or not savestate.create or not savestate.save or not savestate.load then
-  error("BizHawk in-memory savestate API unavailable; aborting")
- end
  local initial=sample()
  if initial.game_state~=0 or initial.owner<config.MY_FIRST
     or initial.owner>config.MY_LAST then
   error("Start with active play and ball held by MY player; no actions sent")
  end
- local ss=savestate.create()
- savestate.save(ss)
+ local snapshot=ReplaySnapshot.capture()
  local f=assert(io.open(OUTFILE,"w"))
  write(f,{"index","horizontal","vertical","button","command",
   "base_ball_x","base_ball_y","base_owner","base_team","base_selected",
@@ -78,7 +75,7 @@ local function run()
  for _,d in ipairs(directions) do
   for _,button in ipairs(actions) do
    index=index+1
-   savestate.load(ss)
+   snapshot.restore()
    for i=1,SETTLE_FRAMES do tick({}) end
    local before=sample()
    local pad={[d[1]]=true,[d[2]]=true,[button]=true}
@@ -135,7 +132,8 @@ local function run()
    print(string.format("Diagonal probe %d/16: %s+%s+%s",index,d[1],d[2],button))
   end
  end
- savestate.load(ss)
+ snapshot.restore()
+ snapshot.close()
  joypad.set({},config.PLAYER)
  f:close()
  print("Diagonal matrix CSV: "..OUTFILE)
