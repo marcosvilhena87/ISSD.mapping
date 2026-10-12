@@ -1762,6 +1762,12 @@ local function step_bot()
                                 ..";permissive="..tostring(permissive)
                                 ..";age="..age..";pressure="..nearest)
                         end
+                        local latency_cfg=config.DIAGONAL_PASS_EXECUTION_LATENCY_GUARD
+                        local fast_empirical=latency_cfg and latency_cfg.enabled
+                            and plan.empirical_override and plan.empirical_receipt
+                            and plan.receiver==latency_cfg.receiver
+                            and nearest>=latency_cfg.min_cpu_distance
+                        local required_confirm=fast_empirical and 1 or cfg.confirm_frames
                         a.confirmed=facing and a.confirmed+1 or 0
                         -- Passive diagnostics: ball-relative geometry is only
                         -- a proxy for facing, not the ROM's facing register.
@@ -1788,13 +1794,13 @@ local function step_bot()
                             ..";facing="..tostring(facing)
                             ..";reason="..facing_reason
                             ..";confirmed="..a.confirmed
-                            ..";required="..cfg.confirm_frames
+                            ..";required="..required_confirm
                             ..";pressure="..nearest
                             ..";closing="..closing
                             ..";age="..age..";budget="..budget
                             ..";recovery="..tostring(recovery_allowed)
                             ..";button=NONE_OR_DIRECTION_ONLY")
-                        if a.confirmed>=cfg.confirm_frames then
+                        if a.confirmed>=required_confirm then
                             if recovery_allowed then
                                 report:write("PASS_ORIENTATION_CONFIRMED_UNDER_PRESSURE",
                                     true,{my_base=my_base,possession=possession,game_state=gs},
@@ -2029,14 +2035,57 @@ local function step_bot()
                             ..";cardinal_outlet="..tostring(outlet~=nil)
                             ..";reason="..tostring(outlet_diag.reason))
                     end
+                    -- Track the approved empirical pass through orientation,
+                    -- re-planning and release; never fire an expired plan.
+                    local latency=defensive_pass_alignment
+                    if latency and latency.empirical_receiver
+                        and (not outlet or outlet.receiver~=latency.empirical_receiver
+                            or not outlet.empirical_override) then
+                        report:write("DIAGONAL_PASS_CANCELLED",true,
+                            {my_base=my_base,possession=possession,game_state=gs},
+                            "OBSERVE_LATENCY",
+                            "receiver="..tostring(latency.empirical_receiver)
+                            ..";age="..tostring(report.frame-latency.empirical_start)
+                            ..";reason=REPLAN_REJECTED")
+                        latency.empirical_receiver=nil
+                    end
+                    if outlet and outlet.empirical_override
+                        and not (latency and latency.empirical_receiver==outlet.receiver) then
+                        report:write("DIAGONAL_PASS_APPROVED",true,
+                            {my_base=my_base,possession=possession,game_state=gs},
+                            "OBSERVE_LATENCY","receiver="..tostring(outlet.receiver)
+                            ..";guard="..tostring(outlet.empirical_receipt))
+                    end
                     local outlet_ready=false
                     if outlet then
                         local waiting=align_defensive_pass(outlet)
+                        if outlet.empirical_override and defensive_pass_alignment then
+                            local a=defensive_pass_alignment
+                            if a.empirical_receiver~=outlet.receiver then
+                                a.empirical_receiver=outlet.receiver
+                                a.empirical_start=report.frame
+                            end
+                            if waiting==false then
+                                report:write("DIAGONAL_PASS_ALIGNING",true,
+                                    {my_base=my_base,possession=possession,game_state=gs},
+                                    "OBSERVE_LATENCY",
+                                    "receiver="..tostring(outlet.receiver)
+                                    ..";age="..tostring(report.frame-a.empirical_start))
+                            end
+                        end
                         if type(waiting)=="table" then return waiting end
                         outlet_ready=waiting==true
                     end
                     if outlet_ready and forward_pass.fire(outlet,movement) then
                         if outlet.empirical_override then
+                            local a=defensive_pass_alignment
+                            report:write("DIAGONAL_PASS_FIRED",true,
+                                {my_base=my_base,possession=possession,game_state=gs},
+                                movement.last_command,
+                                "receiver="..tostring(outlet.receiver)
+                                ..";approval_to_fire_frames="..tostring(
+                                    a and a.empirical_start
+                                    and report.frame-a.empirical_start or 0))
                             report:write("DIAGONAL_OVERRIDE_FIRED",true,
                                 {my_base=my_base,possession=possession,game_state=gs},
                                 movement.last_command,
