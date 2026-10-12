@@ -707,6 +707,9 @@ M.POST_DIAGONAL_BACKWARD_SUPPORT={
     min_receiver_clearance=65,min_lane_clearance=55,
     min_arrival_margin=28,min_carrier_cpu_gap=18,
     receiver_speed=4,cpu_speed=5,
+    -- Null until validated from ROM traces. Never assume receiver running
+    -- speed equals the speed of a B pass; default stays conservative.
+    ball_speed=nil,
 }
 
 M.DIAGONAL_PASS_EMPIRICAL_OVERRIDE_GUARDED = {
