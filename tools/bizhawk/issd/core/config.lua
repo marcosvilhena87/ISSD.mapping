@@ -677,6 +677,15 @@ M.PROGRESSIVE_PASS_PRIORITY = {
 -- Experimental: reduce facing confirmation to one valid frame ONLY
 -- for the explicitly approved $0800 -> $0B00 reception pocket.
 -- The facing proxy and pressure restriction still must pass.
+-- Disabled by default; direct press requires a freshly approved
+-- empirical UP+B plan AND the latency guard, with ball nearby.
+M.EMPIRICAL_UP_B_FACING_BYPASS={
+    enabled=false,
+    max_ball_distance=13,
+    max_ball_axis_offset=12,
+    min_cpu_distance=45,
+}
+
 M.DIAGONAL_PASS_EXECUTION_LATENCY_GUARD={
     enabled=false, receiver=0x0B00, min_cpu_distance=45,
 }
