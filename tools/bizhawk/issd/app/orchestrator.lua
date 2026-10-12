@@ -1946,6 +1946,18 @@ local function step_bot()
                             ..";age="..(report.frame-chain.start))
                     end
                     local outlet,outlet_diag=forward_pass.plan(my_base,false,true)
+                    if my_base==0x0A00 and outlet_diag
+                        and outlet_diag.reason=="COOLDOWN"
+                        and (defensive_hold_age==1 or report.frame%10==0) then
+                        report:write("POST_DIAGONAL_COOLDOWN_BLOCK",true,
+                            {my_base=my_base,possession=possession,game_state=gs},
+                            "OBSERVE_COOLDOWN",
+                            "carrier="..tostring(my_base)
+                            ..";remaining="..tostring(forward_pass.cooldown)
+                            ..";hold_age="..tostring(defensive_hold_age)
+                            ..";receiver_candidate=3072"
+                            ..";tested_commands=Left+Up+B|Left+Down+B")
+                    end
                     if outlet_diag and outlet_diag.empirical_override
                         and (defensive_hold_age==1 or report.frame%15==0) then
                         local summary=outlet_diag.empirical_override
