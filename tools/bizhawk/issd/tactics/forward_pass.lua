@@ -1102,8 +1102,18 @@ function M.new(config,players,field_side,mem)
                 cpu_eta=math.min(cpu_eta,distance(rx,ry,ex,ey)/cfg.cpu_speed)
             end
         end)
-        local receiver_eta=dst/cfg.receiver_speed
-        local margin=(cpu_eta-receiver_eta)*cfg.receiver_speed
+        -- Separate ball flight from teammate running time. A configured
+        -- value is an explicit measured B-flight speed, never inferred from
+        -- receiver_speed. Until calibrated, retain the old safe fallback.
+        local calibrated_speed=type(cfg.ball_speed)=="number"
+            and cfg.ball_speed>0 and cfg.ball_speed or nil
+        local effective_ball_speed=calibrated_speed or cfg.receiver_speed
+        local ball_eta=dst/effective_ball_speed
+        local receiver_eta=dst/cfg.receiver_speed -- legacy comparison only
+        local margin=(cpu_eta-ball_eta)*cfg.receiver_speed
+        local required_speed=cpu_eta>cfg.min_arrival_margin/cfg.receiver_speed
+            and dst/(cpu_eta-cfg.min_arrival_margin/cfg.receiver_speed)
+            or math.huge
         local failed={}
         local function check(ok,name)
             if not ok then failed[#failed+1]=name end
@@ -1118,7 +1128,11 @@ function M.new(config,players,field_side,mem)
         check(pressure>=cfg.min_carrier_cpu_gap,"CARRIER_PRESSURE")
         local diagnostic={reason=#failed==0 and "SAFE" or table.concat(failed,"|"),
             receiver=cfg.receiver,miss=miss,clearance=clearance,lane=lane,
-            margin=margin,pressure=pressure,distance=dst}
+            margin=margin,pressure=pressure,distance=dst,
+            ball_eta=ball_eta,cpu_eta=cpu_eta,receiver_eta=receiver_eta,
+            ball_speed=effective_ball_speed,
+            ball_speed_source=calibrated_speed and "CONFIGURED" or "UNVALIDATED_FALLBACK",
+            required_ball_speed=required_speed}
         if #failed>0 then return nil,diagnostic end
         return {carrier=carrier,receiver=cfg.receiver,
             direction="Left",vertical="Up",button="B",
