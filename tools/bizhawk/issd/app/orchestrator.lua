@@ -760,15 +760,29 @@ local function step_bot()
                 end
             end
             local dx,dy=bx-p.ball_x,by-p.ball_y
-            -- Per-frame observed ball movement (not receiver running speed).
+            -- Distinguish ball release from initial animation, measuring
+            -- consecutive movement only while the passer no longer owns it.
+            -- A threshold avoids classifying coordinate jitter as flight.
+            local step=0
             if p.flight_prev_x and p.flight_prev_y then
-                local step=math.sqrt((bx-p.flight_prev_x)^2+(by-p.flight_prev_y)^2)
+                step=math.sqrt((bx-p.flight_prev_x)^2+(by-p.flight_prev_y)^2)
                 p.flight_steps=(p.flight_steps or 0)+1
                 p.flight_total=(p.flight_total or 0)+step
                 p.flight_max=math.max(p.flight_max or 0,step)
                 p.flight_min=math.min(p.flight_min or math.huge,step)
             end
             p.flight_prev_x,p.flight_prev_y=bx,by
+            local released=possession~=p.passer and gs==0
+            if not p.free_flight_start and released and step>=1.5 then
+                p.free_flight_start=age
+                p.free_flight_total=0
+                p.free_flight_steps=0
+            end
+            if p.free_flight_start and released and step>=1.5 then
+                p.free_flight_total=p.free_flight_total+step
+                p.free_flight_steps=p.free_flight_steps+1
+                p.free_flight_max=math.max(p.free_flight_max or 0,step)
+            end
             local movement_distance=math.sqrt(dx*dx+dy*dy)
             p.max_ball_displacement=math.max(p.max_ball_displacement or 0,movement_distance)
             if (age==1 or age==3 or age==6 or age==12)
@@ -882,7 +896,13 @@ local function step_bot()
                     ..";min_gap_0A00="..tostring(gaps[0x0A00])
                     ..";min_gap_0B00="..tostring(gaps[0x0B00])
                     ..";min_gap_0C00="..tostring(gaps[0x0C00])
-                    ..";max_displacement="..tostring(p.max_ball_displacement))
+                    ..";max_displacement="..tostring(p.max_ball_displacement)
+                    ..";command="..tostring(p.direction).."+"..tostring(p.vertical).."+B"
+                    ..";free_flight_start="..tostring(p.free_flight_start)
+                    ..";free_flight_steps="..tostring(p.free_flight_steps or 0)
+                    ..";free_flight_mean="..tostring(p.free_flight_steps and p.free_flight_steps>0
+                        and p.free_flight_total/p.free_flight_steps or 0)
+                    ..";free_flight_max="..tostring(p.free_flight_max or 0))
             end
             report:write("DEFENSIVE_"..kind,true,
                 {possession=possession,game_state=gs,my_base=my_base},
