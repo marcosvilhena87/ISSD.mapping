@@ -697,13 +697,14 @@ M.DIAGONAL_PASS_EXECUTION_LATENCY_GUARD={
     enabled=false, receiver=0x0B00, min_cpu_distance=45,
 }
 
--- Opt-in, narrowly scoped Left+Up+B from $0A00 to $0C00.
--- Initial limits are hypotheses, not calibrated ROM trajectories.
+-- Manual observation: $0A00 can recycle toward $0600 with Left+Up+B.
+-- Do not assume the 45-degree ray predicts the ROM's B-pass receiver.
+-- Opt-in until repeated outcome telemetry confirms targeting and safety.
 M.POST_DIAGONAL_BACKWARD_SUPPORT={
-    enabled=false, carrier=0x0A00,receiver=0x0C00,
-    min_left=12,max_left=190,min_up=12,max_up=190,
-    max_distance=220,min_projection=25,max_command_miss=35,
-    min_receiver_clearance=65,min_lane_clearance=65,
+    enabled=false, carrier=0x0A00,receiver=0x0600,
+    min_left=245,max_left=290,min_up=15,max_up=45,
+    max_distance=300,min_projection=150,max_command_miss=195,
+    min_receiver_clearance=65,min_lane_clearance=55,
     min_arrival_margin=28,min_carrier_cpu_gap=18,
     receiver_speed=4,cpu_speed=5,
 }
