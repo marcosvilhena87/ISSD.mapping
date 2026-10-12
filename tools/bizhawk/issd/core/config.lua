@@ -676,7 +676,11 @@ M.PROGRESSIVE_PASS_PRIORITY = {
 -- These limits are hypotheses, NOT a calibrated ROM trajectory.
 M.DIAGONAL_PASS_EMPIRICAL_OVERRIDE_GUARDED = {
     enabled=true,
-    carrier=0x0800, receiver=0x0C00,
+    carrier=0x0800,
+    receivers={
+        {receiver=0x0B00,vertical="Up",min_lateral=10,max_lateral=90,max_command_miss=95},
+        {receiver=0x0C00,vertical="Down",min_lateral=45,max_lateral=90,max_command_miss=58},
+    },
     min_forward=110, max_forward=175,
     min_lateral=45, max_lateral=90,
     max_distance=200, min_projection=95,
