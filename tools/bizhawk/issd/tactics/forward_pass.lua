@@ -588,11 +588,43 @@ function M.new(config,players,field_side,mem)
                     end
                     local failures=#failed==0 and "NONE"
                         or table.concat(failed,"|")
-                    local accepted=reject=="ACCEPTED"
+                    -- Single successful same-state UP+B trial: narrowly scoped
+                    -- empirical pocket. Never bypass zone/geometry or nearby
+                    -- CPU-on-ball checks; keep standard filters for all others.
+                    local pocket=empirical_cfg.reception_pocket
+                    local empirical_receipt=false
+                    if pocket and pocket.enabled and base==pocket.receiver
+                        and entry.vertical=="Up"
+                        and math.abs(px-pocket.carrier_x)<=pocket.max_carrier_offset
+                        and math.abs(py-pocket.carrier_y)<=pocket.max_carrier_offset
+                        and math.abs(forward-pocket.forward)<=pocket.max_forward_delta
+                        and math.abs(sy*lateral-pocket.abs_lateral)<=pocket.max_lateral_delta
+                        and range<=empirical_cfg.max_distance
+                        and zone_for(rx,dir)~=nil
+                        and miss<=entry.max_command_miss
+                        and clearance>=pocket.min_receiver_clearance
+                        and lane>=pocket.min_lane_clearance
+                        and margin>=pocket.min_arrival_margin then
+                        local nearest_ball_cpu=math.huge
+                        players.each_cpu(function(cpu)
+                            if cpu~=config.CPU_FIRST then
+                                local ex,ey=players.xy(cpu)
+                                nearest_ball_cpu=math.min(nearest_ball_cpu,
+                                    distance(px,py,ex,ey))
+                            end
+                        end)
+                        empirical_receipt=nearest_ball_cpu>=pocket.min_carrier_cpu_gap
+                    end
+                    if empirical_receipt then
+                        reject="ACCEPTED_EMPIRICAL_POCKET"
+                        failed={}
+                        failures="OVERRIDE_CALIBRATED_UP_B"
+                    end
+                    local accepted=reject=="ACCEPTED" or empirical_receipt
                     local score=clearance+lane+margin-miss*0.5
                     diag.empirical_candidates[#diag.empirical_candidates+1]={
                         status=accepted and "SELECTED" or "REJECTED",
-                        reason=reject,failures=failures,carrier=carrier,receiver=base,
+                        reason=reject,failures=failures,empirical_receipt=empirical_receipt,carrier=carrier,receiver=base,
                         direction="Right",vertical=entry.vertical,
                         forward=forward,lateral=lateral,distance=range,
                         projection=projection,miss=miss,clearance=clearance,
@@ -603,6 +635,7 @@ function M.new(config,players,field_side,mem)
                             carrier=carrier,receiver=base,zone=zone,
                             direction="Right",vertical=entry.vertical,button="B",
                             intent="EIGHT_WAY_DIAGONAL",empirical_override=true,
+                            empirical_receipt=empirical_receipt,
                             distance=range,forward=forward,lateral=math.abs(lateral),
                             ray_offset=miss,arrival_margin=margin,
                             receiver_clearance=clearance,lane_clearance=lane,
