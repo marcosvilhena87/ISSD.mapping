@@ -2078,7 +2078,7 @@ local function step_bot()
                             ..";lane="..tostring(support and support.lane_clearance)
                             ..";space="..tostring(support and support.receiver_clearance))
                     end
-                    -- Give $0A00 a safe backward diagonal support option
+                    -- Evaluate $0A00 -> $0600 backward diagonal support
                     -- before choosing an A-clearance. Existing outlets win.
                     if my_base==0x0A00 then
                         local back,diag=forward_pass.post_diagonal_backward_support(my_base)
@@ -2086,18 +2086,19 @@ local function step_bot()
                             report:write("POST_DIAGONAL_BACKWARD_SUPPORT_EVAL",true,
                                 {my_base=my_base,possession=possession,game_state=gs},
                                 "Left+Up+B",
-                                "receiver=3072;reason="..tostring(diag and diag.reason)
+                                "receiver=1536;reason="..tostring(diag and diag.reason)
                                 ..";space="..tostring(diag and diag.clearance)
                                 ..";lane="..tostring(diag and diag.lane)
                                 ..";margin="..tostring(diag and diag.margin)
                                 ..";pressure="..tostring(diag and diag.pressure)
-                                ..";miss="..tostring(diag and diag.miss))
+                                ..";miss="..tostring(diag and diag.miss)
+                                ..";distance="..tostring(diag and diag.distance))
                         end
                         if not outlet and back then
                             outlet=back
                             report:write("POST_DIAGONAL_BACKWARD_SUPPORT_SELECTED",true,
                                 {my_base=my_base,possession=possession,game_state=gs},
-                                "Left+Up+B","receiver=3072")
+                                "Left+Up+B","receiver=1536")
                         end
                     end
                     telemetry_controller.observe_five_direction_pass(my_base,outlet,outlet_diag)
