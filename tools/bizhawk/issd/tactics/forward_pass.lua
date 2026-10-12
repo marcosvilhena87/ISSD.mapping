@@ -2,7 +2,10 @@
 -- World field coordinates are candidates; fail closed on invalid geometry.
 local M={}
 function M.new(config,players,field_side,mem)
-    local obj={cooldown=0,last_carrier=nil}
+    local obj={cooldown=0,last_carrier=nil,cooldowns={}}
+    function obj.cooldown_for(carrier)
+        return obj.cooldowns[carrier] or 0
+    end
     local c=config.FORWARD_PASS
     local function distance(x,y,a,b)
         return math.sqrt((x-a)^2+(y-b)^2)
@@ -117,10 +120,19 @@ function M.new(config,players,field_side,mem)
         return bonus,second,carry,nearest
     end
     function obj.tick()
-        if obj.cooldown>0 then obj.cooldown=obj.cooldown-1 end
+        local maximum=0
+        for carrier,remaining in pairs(obj.cooldowns) do
+            if remaining>1 then
+                obj.cooldowns[carrier]=remaining-1
+                maximum=math.max(maximum,remaining-1)
+            else
+                obj.cooldowns[carrier]=nil
+            end
+        end
+        obj.cooldown=maximum -- aggregate diagnostic; not a blocking gate
     end
     function obj.reset()
-        obj.cooldown=0;obj.last_carrier=nil
+        obj.cooldown=0;obj.last_carrier=nil;obj.cooldowns={}
     end
     function obj.plan(carrier, prefer_central, early_defensive)
         local diag={candidate_count=0,geometry_rejected=0,
@@ -142,7 +154,7 @@ function M.new(config,players,field_side,mem)
             diagonal_receiver=nil,diagonal_forward=nil,
             diagonal_lateral=nil,diagonal_distance=nil,
             diagonal_lane=nil,diagonal_receiver_clearance=nil}
-        if obj.cooldown>0 then diag.reason="COOLDOWN";return nil,diag end
+        if obj.cooldown_for(carrier)>0 then diag.reason="COOLDOWN";return nil,diag end
         if not players.valid_my_base(carrier)
             or carrier==config.MY_FIRST then
             diag.reason="INVALID_CARRIER";return nil,diag
@@ -686,7 +698,7 @@ function M.new(config,players,field_side,mem)
     -- vertical B lane; do not mistake a diagonal segment for a cardinal pass.
     function obj.support_plan(carrier)
         local cfg=config.DEFENSIVE_SUPPORT_PASS
-        if not cfg or not cfg.enabled or obj.cooldown>0
+        if not cfg or not cfg.enabled or obj.cooldown_for(carrier)>0
             or not players.valid_my_base(carrier)
             or carrier==config.MY_FIRST then return nil,"DISABLED_OR_COOLDOWN" end
         local dir=field_side.attack_direction()
@@ -756,7 +768,7 @@ function M.new(config,players,field_side,mem)
     -- backward B lane is executable; a diagonal GK pass is not assumed.
     function obj.gk_backpass_plan(carrier)
         local cfg=config.GK_BACKPASS_SUPPORT
-        if not cfg or not cfg.enabled or obj.cooldown>0
+        if not cfg or not cfg.enabled or obj.cooldown_for(carrier)>0
             or not players.valid_my_base(carrier)
             or carrier==config.MY_FIRST then return nil,"DISABLED_OR_COOLDOWN" end
         local dir=field_side.attack_direction()
@@ -805,7 +817,7 @@ function M.new(config,players,field_side,mem)
     -- Evaluate the actual commanded ray, never assume an arbitrary target pass.
     function obj.final_third_support_plan(carrier)
         local cfg=config.FINAL_THIRD_PRESSURE_SUPPORT
-        if not cfg or not cfg.enabled or obj.cooldown>0
+        if not cfg or not cfg.enabled or obj.cooldown_for(carrier)>0
             or not players.valid_my_base(carrier)
             or carrier==config.MY_FIRST then return nil,"UNAVAILABLE" end
         local dir=field_side.attack_direction()
@@ -894,7 +906,7 @@ function M.new(config,players,field_side,mem)
     end
     function obj.defensive_all_direction_plan(carrier)
         local cfg=config.DEFENSIVE_ALL_DIRECTION_SUPPORT
-        if not cfg or not cfg.enabled or obj.cooldown>0
+        if not cfg or not cfg.enabled or obj.cooldown_for(carrier)>0
             or not players.valid_my_base(carrier)
             or carrier==config.MY_FIRST then return nil,"UNAVAILABLE" end
         local attack=field_side.attack_direction()
@@ -1112,7 +1124,7 @@ function M.new(config,players,field_side,mem)
           score=clearance+lane+margin-miss},diagnostic
     end
     function obj.fire(plan,movement)
-        if not plan or obj.cooldown>0 then return false end
+        if not plan or obj.cooldown_for(plan.carrier)>0 then return false end
         if plan.intent=="SHORT_DIAGONAL" or plan.intent=="EIGHT_WAY_DIAGONAL"
             or ((plan.intent=="FINAL_THIRD_PRESSURE_SUPPORT"
                 or plan.intent=="DEFENSIVE_SUPPORT_8WAY"
@@ -1121,7 +1133,8 @@ function M.new(config,players,field_side,mem)
         else
             movement.press_direction_button(plan.direction,plan.button)
         end
-        obj.cooldown=c.cooldown_frames
+        obj.cooldowns[plan.carrier]=c.cooldown_frames
+        obj.cooldown=math.max(obj.cooldown,c.cooldown_frames)
         obj.last_carrier=plan.carrier
         return true
     end
