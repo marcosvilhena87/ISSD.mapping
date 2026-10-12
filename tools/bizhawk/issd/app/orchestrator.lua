@@ -760,6 +760,15 @@ local function step_bot()
                 end
             end
             local dx,dy=bx-p.ball_x,by-p.ball_y
+            -- Per-frame observed ball movement (not receiver running speed).
+            if p.flight_prev_x and p.flight_prev_y then
+                local step=math.sqrt((bx-p.flight_prev_x)^2+(by-p.flight_prev_y)^2)
+                p.flight_steps=(p.flight_steps or 0)+1
+                p.flight_total=(p.flight_total or 0)+step
+                p.flight_max=math.max(p.flight_max or 0,step)
+                p.flight_min=math.min(p.flight_min or math.huge,step)
+            end
+            p.flight_prev_x,p.flight_prev_y=bx,by
             local movement_distance=math.sqrt(dx*dx+dy*dy)
             p.max_ball_displacement=math.max(p.max_ball_displacement or 0,movement_distance)
             if (age==1 or age==3 or age==6 or age==12)
@@ -2092,7 +2101,13 @@ local function step_bot()
                                 ..";margin="..tostring(diag and diag.margin)
                                 ..";pressure="..tostring(diag and diag.pressure)
                                 ..";miss="..tostring(diag and diag.miss)
-                                ..";distance="..tostring(diag and diag.distance))
+                                ..";distance="..tostring(diag and diag.distance)
+                                ..";ball_eta="..tostring(diag and diag.ball_eta)
+                                ..";cpu_eta="..tostring(diag and diag.cpu_eta)
+                                ..";receiver_eta="..tostring(diag and diag.receiver_eta)
+                                ..";ball_speed="..tostring(diag and diag.ball_speed)
+                                ..";ball_speed_source="..tostring(diag and diag.ball_speed_source)
+                                ..";required_ball_speed="..tostring(diag and diag.required_ball_speed))
                         end
                         if not outlet and back then
                             outlet=back
