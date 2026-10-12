@@ -323,6 +323,12 @@ M.DEFENSIVE_MIDFIELD_TRANSITION = {
     stability_grace_frames=18, -- one bounded extension after midfield entry
 }
 
+-- Telemetry-only: don't declare STOPPAGE from a short-lived inactive
+-- gameplay signal while the ROM game_state still indicates active play.
+M.DEFENSIVE_PASS_TRANSIENT_GAMEPLAY={
+    enabled=true, grace_frames=4,
+}
+
 M.DEFENSIVE_PASS_OUTCOME = {
     max_frames=75, -- a commanded pass is not a confirmed reception
 }

@@ -779,8 +779,38 @@ local function step_bot()
             end
             p.previous_gs=gs
         end
-        if gs~=0 or not gameplay_active.is_active(gameplay_value) then
-            kind="PASS_UNRESOLVED";reason="STOPPAGE"
+        local active_now=gameplay_active.is_active(gameplay_value)
+        local tolerance=config.DEFENSIVE_PASS_TRANSIENT_GAMEPLAY
+        if gs==0 and not active_now then
+            p.inactive_streak=(p.inactive_streak or 0)+1
+            if tolerance and tolerance.enabled
+                and p.inactive_streak<=tolerance.grace_frames then
+                report:write("DEFENSIVE_PASS_GAMEPLAY_TRANSIENT",true,
+                    {possession=possession,game_state=gs,my_base=my_base},
+                    "OBSERVE_PASS_OUTCOME",
+                    "sequence="..tostring(p.sequence)
+                    ..";age="..tostring(age)
+                    ..";inactive_streak="..tostring(p.inactive_streak)
+                    ..";grace="..tostring(tolerance.grace_frames)
+                    ..";owner="..tostring(possession))
+            end
+        else
+            if p.inactive_streak and p.inactive_streak>0 then
+                report:write("DEFENSIVE_PASS_GAMEPLAY_RECOVERED",true,
+                    {possession=possession,game_state=gs,my_base=my_base},
+                    "OBSERVE_PASS_OUTCOME",
+                    "sequence="..tostring(p.sequence)
+                    ..";inactive_frames="..tostring(p.inactive_streak))
+            end
+            p.inactive_streak=0
+        end
+        local sustained_inactive=not active_now
+            and (not tolerance or not tolerance.enabled
+                or p.inactive_streak>tolerance.grace_frames)
+        if gs~=0 or sustained_inactive then
+            kind="PASS_UNRESOLVED"
+            reason=gs~=0 and "GAME_STATE_STOPPAGE"
+                or "SUSTAINED_GAMEPLAY_INACTIVE"
         elseif players.valid_cpu_base(possession) then
             kind="PASS_INTERCEPTED";reason="CPU_POSSESSION"
         elseif players.valid_my_base(possession) and possession~=p.passer then
