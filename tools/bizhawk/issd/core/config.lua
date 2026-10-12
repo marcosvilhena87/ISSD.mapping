@@ -674,6 +674,13 @@ M.PROGRESSIVE_PASS_PRIORITY = {
 -- Narrow experimental exception from manually successful $0800->$0C00
 -- Right+Down+B. Disable to restore the previous behavior instantly.
 -- These limits are hypotheses, NOT a calibrated ROM trajectory.
+-- Experimental: reduce facing confirmation to one valid frame ONLY
+-- for the explicitly approved $0800 -> $0B00 reception pocket.
+-- The facing proxy and pressure restriction still must pass.
+M.DIAGONAL_PASS_EXECUTION_LATENCY_GUARD={
+    enabled=false, receiver=0x0B00, min_cpu_distance=45,
+}
+
 M.DIAGONAL_PASS_EMPIRICAL_OVERRIDE_GUARDED = {
     enabled=true,
     carrier=0x0800,
