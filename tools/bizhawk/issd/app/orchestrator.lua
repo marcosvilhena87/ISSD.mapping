@@ -1868,6 +1868,19 @@ local function step_bot()
                             ..";age="..(report.frame-chain.start))
                     end
                     local outlet,outlet_diag=forward_pass.plan(my_base,false,true)
+                    if outlet_diag and outlet_diag.empirical_override
+                        and (defensive_hold_age==1 or report.frame%15==0) then
+                        local e=outlet_diag.empirical_override
+                        report:write("DIAGONAL_OVERRIDE_"..e.status,true,
+                            {my_base=my_base,possession=possession,game_state=gs},
+                            "OBSERVE_OVERRIDE",
+                            "reason="..tostring(e.reason)
+                            ..";receiver="..tostring(e.receiver)
+                            ..";miss="..tostring(e.miss)
+                            ..";lane="..tostring(e.lane)
+                            ..";clearance="..tostring(e.clearance)
+                            ..";arrival_margin="..tostring(e.arrival_margin))
+                    end
                     -- Scan intermediate support in every executable direction;
                     -- prefer a safe, more progressive outlet over recycling.
                     local all_support,all_reason=
@@ -2013,6 +2026,15 @@ local function step_bot()
                         outlet_ready=waiting==true
                     end
                     if outlet_ready and forward_pass.fire(outlet,movement) then
+                        if outlet.empirical_override then
+                            report:write("DIAGONAL_OVERRIDE_FIRED",true,
+                                {my_base=my_base,possession=possession,game_state=gs},
+                                movement.last_command,
+                                "receiver="..tostring(outlet.receiver)
+                                ..";miss="..tostring(outlet.ray_offset)
+                                ..";lane="..tostring(outlet.lane_clearance)
+                                ..";arrival_margin="..tostring(outlet.arrival_margin))
+                        end
                         report:write("PASS_ORIENTATION_RELEASE",true,
                             {my_base=my_base,possession=possession,game_state=gs},
                             movement.last_command,
