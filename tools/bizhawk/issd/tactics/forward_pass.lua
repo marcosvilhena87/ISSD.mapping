@@ -507,11 +507,14 @@ function M.new(config,players,field_side,mem)
         -- Candidate remains subordinate to every normal safe pass.
         local empirical_cfg=config.DIAGONAL_PASS_EMPIRICAL_OVERRIDE_GUARDED
         local empirical_plan=nil
+        diag.empirical_override={status="NOT_ELIGIBLE",reason="PRIORITY_OR_CONTEXT",
+            carrier=carrier,receiver=empirical_cfg and empirical_cfg.receiver}
         if empirical_cfg and empirical_cfg.enabled and not best
             and not best_eight_way and not best_diagonal
             and not prefer_central and zone==1
             and carrier==empirical_cfg.carrier
             and dir==1 then
+            diag.empirical_override.status="EVALUATED"
             local rx,ry=players.xy(empirical_cfg.receiver)
             local dx,dy=rx-px,ry-py
             local forward=dx*dir
@@ -536,6 +539,30 @@ function M.new(config,players,field_side,mem)
             end)
             local arrival_margin=(cpu_eta-miss/empirical_cfg.receiver_speed)
                 *empirical_cfg.receiver_speed
+            local reject="ACCEPTED"
+            if forward<empirical_cfg.min_forward or forward>empirical_cfg.max_forward
+                or lateral<empirical_cfg.min_lateral
+                or lateral>empirical_cfg.max_lateral
+                or range>empirical_cfg.max_distance
+                or projection<empirical_cfg.min_projection then
+                reject="GEOMETRY"
+            elseif miss>empirical_cfg.max_command_miss then
+                reject="COMMAND_MISS"
+            elseif clearance<empirical_cfg.min_receiver_clearance then
+                reject="RECEIVER_PRESSURE"
+            elseif lane<empirical_cfg.min_lane_clearance then
+                reject="CORRIDOR_BLOCKED"
+            elseif arrival_margin<empirical_cfg.min_arrival_margin then
+                reject="ARRIVAL_MARGIN"
+            elseif zone_for(rx,dir)==nil then
+                reject="INVALID_RECEIVER_ZONE"
+            end
+            diag.empirical_override={
+                status=reject=="ACCEPTED" and "SELECTED" or "REJECTED",
+                reason=reject,carrier=carrier,receiver=empirical_cfg.receiver,
+                forward=forward,lateral=lateral,distance=range,
+                projection=projection,miss=miss,clearance=clearance,
+                lane=lane,arrival_margin=arrival_margin}
             if forward>=empirical_cfg.min_forward
                 and forward<=empirical_cfg.max_forward
                 and lateral>=empirical_cfg.min_lateral
