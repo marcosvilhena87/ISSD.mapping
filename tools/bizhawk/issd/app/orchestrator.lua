@@ -1870,16 +1870,25 @@ local function step_bot()
                     local outlet,outlet_diag=forward_pass.plan(my_base,false,true)
                     if outlet_diag and outlet_diag.empirical_override
                         and (defensive_hold_age==1 or report.frame%15==0) then
-                        local e=outlet_diag.empirical_override
-                        report:write("DIAGONAL_OVERRIDE_"..e.status,true,
+                        local summary=outlet_diag.empirical_override
+                        report:write("DIAGONAL_OVERRIDE_"..summary.status,true,
                             {my_base=my_base,possession=possession,game_state=gs},
-                            "OBSERVE_OVERRIDE",
-                            "reason="..tostring(e.reason)
-                            ..";receiver="..tostring(e.receiver)
-                            ..";miss="..tostring(e.miss)
-                            ..";lane="..tostring(e.lane)
-                            ..";clearance="..tostring(e.clearance)
-                            ..";arrival_margin="..tostring(e.arrival_margin))
+                            "OBSERVE_MULTI_RECEIVER",
+                            "reason="..tostring(summary.reason)
+                            ..";receiver="..tostring(summary.receiver))
+                        for _,e in ipairs(outlet_diag.empirical_candidates or {}) do
+                            report:write("DIAGONAL_OVERRIDE_CANDIDATE",true,
+                                {my_base=my_base,possession=possession,game_state=gs},
+                                e.direction.."+"..e.vertical.."+B",
+                                "status="..tostring(e.status)
+                                ..";reason="..tostring(e.reason)
+                                ..";receiver="..tostring(e.receiver)
+                                ..";miss="..tostring(e.miss)
+                                ..";lane="..tostring(e.lane)
+                                ..";clearance="..tostring(e.clearance)
+                                ..";arrival_margin="..tostring(e.arrival_margin)
+                                ..";score="..tostring(e.score))
+                        end
                     end
                     -- Scan intermediate support in every executable direction;
                     -- prefer a safe, more progressive outlet over recycling.
