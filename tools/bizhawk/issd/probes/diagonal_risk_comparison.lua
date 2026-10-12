@@ -14,6 +14,9 @@ local actions={
  {id="DOWN_B",pad={Right=true,Down=true,B=true},held=1,target=0x0C00},
  {id="RIGHT_A",pad={Right=true,A=true},held=5,target=nil},
 }
+-- Used only if neither savestate API is exposed in this Lua environment.
+-- Reload the SAME savestate from the EmuHawk UI before every manual run.
+local MANUAL_ACTION="UP_B" -- change to DOWN_B, then RIGHT_A
 local FRAMES=120
 local FILE=D.."../diagonal_risk_comparison.csv"
 local function xy(b)
@@ -38,12 +41,30 @@ local function run()
  if mem.u16(cfg.ADDR.game_state)~=0 or owner()~=0x0800 then
   error("Load active gameplay with $0800 individually possessing the ball")
  end
- local snapshot=ReplaySnapshot.capture()
- local f=assert(io.open(FILE,"w"))
+ local has_memory=type(memorysavestate)=="table"
+     and type(memorysavestate.savecorestate)=="function"
+     and type(memorysavestate.loadcorestate)=="function"
+ local has_disk=type(savestate)=="table"
+     and type(savestate.save)=="function"
+     and type(savestate.load)=="function"
+ local manual=not has_memory and not has_disk
+ local snapshot=not manual and ReplaySnapshot.capture() or nil
+ local selected={}
+ if manual then
+  for _,action in ipairs(actions) do
+   if action.id==MANUAL_ACTION then selected[1]=action end
+  end
+  if #selected~=1 then error("Unknown MANUAL_ACTION: "..tostring(MANUAL_ACTION)) end
+  print("MANUAL MODE: run "..MANUAL_ACTION.." ONLY; reload the identical state before another run")
+ else
+  selected=actions
+ end
+ local output=manual and (D.."../diagonal_risk_"..MANUAL_ACTION..".csv") or FILE
+ local f=assert(io.open(output,"w"))
  f:write("action,frame,held_frames,ball_x,ball_y,ball_displacement,owner,team,game_state,target,target_distance,nearest_cpu_ball,nearest_cpu_target,signal\n")
  local ok,err=pcall(function()
-  for _,action in ipairs(actions) do
-   snapshot.restore()
+  for _,action in ipairs(selected) do
+   if snapshot then snapshot.restore() end
    local ox,oy=ball()
    for frame=0,FRAMES do
     if frame>0 then
@@ -69,10 +90,9 @@ local function run()
   end
  end)
  joypad.set({},cfg.PLAYER)
- snapshot.restore()
- snapshot.close()
+ if snapshot then snapshot.restore();snapshot.close() end
  f:close()
  if not ok then error(err) end
- print("A/B CSV: "..FILE)
+ print("A/B CSV: "..output)
 end
 run()
