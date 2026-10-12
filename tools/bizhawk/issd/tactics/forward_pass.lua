@@ -1057,6 +1057,60 @@ function M.new(config,players,field_side,mem)
         end)
         return best,best and "SAFE_SUPPORT" or "NO_SAFE_EXECUTABLE_RAY"
     end
+    -- Experimental backward support: only $0A00 -> $0C00 Left+Up+B.
+    -- Never override a conventional safe pass or relax established limits.
+    function obj.post_diagonal_backward_support(carrier)
+        local cfg=config.POST_DIAGONAL_BACKWARD_SUPPORT
+        if not cfg or not cfg.enabled or carrier~=cfg.carrier then
+            return nil,{reason="DISABLED_OR_OTHER_CARRIER"}
+        end
+        local px,py=players.xy(carrier)
+        local rx,ry=players.xy(cfg.receiver)
+        local forward=px-rx
+        local up=py-ry
+        local dst=distance(px,py,rx,ry)
+        local projection=(forward+up)/math.sqrt(2)
+        local miss=math.abs(forward-up)/math.sqrt(2)
+        local lx=px-projection/math.sqrt(2)
+        local ly=py-projection/math.sqrt(2)
+        local clearance,lane,eta,pressure=math.huge,math.huge,math.huge,math.huge
+        players.each_cpu(function(cpu)
+            if cpu~=config.CPU_FIRST then
+                local ex,ey=players.xy(cpu)
+                clearance=math.min(clearance,distance(rx,ry,ex,ey))
+                pressure=math.min(pressure,distance(px,py,ex,ey))
+                local along=((px-ex)+(py-ey))/math.sqrt(2)
+                if along>=0 and along<=projection then
+                    lane=math.min(lane,math.abs((ex-px)-(ey-py))/math.sqrt(2))
+                end
+                eta=math.min(eta,distance(lx,ly,ex,ey)/cfg.cpu_speed)
+            end
+        end)
+        local margin=(eta-miss/cfg.receiver_speed)*cfg.receiver_speed
+        local failed={}
+        local function check(condition,name)
+            if not condition then failed[#failed+1]=name end
+        end
+        check(forward>=cfg.min_left and forward<=cfg.max_left
+          and up>=cfg.min_up and up<=cfg.max_up
+          and dst<=cfg.max_distance and projection>=cfg.min_projection,"GEOMETRY")
+        check(miss<=cfg.max_command_miss,"COMMAND_MISS")
+        check(clearance>=cfg.min_receiver_clearance,"RECEIVER_PRESSURE")
+        check(lane>=cfg.min_lane_clearance,"CORRIDOR_BLOCKED")
+        check(margin>=cfg.min_arrival_margin,"ARRIVAL_MARGIN")
+        check(pressure>=cfg.min_carrier_cpu_gap,"CARRIER_PRESSURE")
+        local diagnostic={reason=#failed==0 and "SAFE" or table.concat(failed,"|"),
+          receiver=cfg.receiver,miss=miss,clearance=clearance,lane=lane,
+          margin=margin,pressure=pressure}
+        if #failed>0 then return nil,diagnostic end
+        return {carrier=carrier,receiver=cfg.receiver,
+          direction="Left",vertical="Up",button="B",
+          intent="EIGHT_WAY_DIAGONAL",post_diagonal_support=true,
+          distance=dst,forward=-forward,lateral=up,
+          ray_offset=miss,receiver_clearance=clearance,
+          lane_clearance=lane,arrival_margin=margin,
+          score=clearance+lane+margin-miss},diagnostic
+    end
     function obj.fire(plan,movement)
         if not plan or obj.cooldown>0 then return false end
         if plan.intent=="SHORT_DIAGONAL" or plan.intent=="EIGHT_WAY_DIAGONAL"
