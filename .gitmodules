@@ -1,0 +1,3 @@
+[submodule "experimental/ISSD_bot"]
+	path = experimental/ISSD_bot
+	url = https://github.com/marcosvilhena87/ISSD_bot.git

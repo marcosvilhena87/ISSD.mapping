@@ -94,3 +94,7 @@ A ideia é explorar primeiro observações estruturadas, em vez de depender some
 - [LUA_ARCHITECTURE.md](docs/LUA_ARCHITECTURE.md) — módulos do controlador.
 - [TARGET_ROM.md](docs/TARGET_ROM.md) — referência da versão do jogo.
 - [WCH_SOURCES.md](docs/WCH_SOURCES.md) — fontes de investigação da memória.
+
+## Laboratório evolutivo ISSD_bot (v1.11.17)
+
+As evoluções do repositório [ISSD_bot](https://github.com/marcosvilhena87/ISSD_bot) foram incorporadas como submódulo versionado em [`experimental/ISSD_bot`](experimental/ISSD_bot), mantendo intacto o controlador legado. O código experimental oferece passes, Dash, radares, calibração, telemetria, testes e geometria por estádio. Execute apenas **um** dos controladores Lua por vez. Para clonar o laboratório: `git submodule update --init --recursive`. Consulte [o guia de integração](docs/ISSD_BOT_EVOLUTION_INTEGRATION.md).
