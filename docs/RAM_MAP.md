@@ -487,3 +487,48 @@ Fonte: `ISSD_players_conditions.wch` (BizHawk RAM Watch). Foram encontrados **40
 | 20 | `0x3EC6` | `0x3F8E` |
 
 **Limitações:** o índice representa a ordem dos registros no arquivo, não uma identificação comprovada dos jogadores. P1/P2 são rótulos da fonte, não necessariamente MY/CPU após troca de lados. Ainda é necessário correlacionar cada registro com o jogador e a indicação visual de condição, testar alterações de escalação, reinícios e estádios, e verificar se os valores permanecem estáticos ou variam com o jogo. Preservar todos os candidatos independentemente do resultado desses testes.
+
+
+## Cartões dos jogadores — endereços validados (WCH)
+
+Fonte: `ISSD_players_cards(1).wch` e confirmação do usuário de que os endereços foram validados. O arquivo lista **40 registros WRAM**, 20 P1 e 20 P2. Cada registro é **byte unsigned** (`b u`, 8 bits). Os estados registrados são:
+
+| Valor decimal | Hexadecimal | Interpretação |
+|---:|---:|---|
+| 0 | `0x00` | Sem cartão |
+| 16 | `0x10` | Cartão amarelo |
+| 128 | `0x80` | Cartão vermelho / expulsão |
+
+**Status: 🟢 validado conforme confirmação do usuário.** Ainda não se presume que um segundo amarelo possua código próprio: a ocorrência de expulsão pode ser indicada pelo estado `128`. Também não se pressupõe que P1/P2 correspondam sempre a MY/CPU.
+
+**Fórmulas**, para índice `i=0..19`:
+
+```text
+P1_card[i] = 0x3E07 + i * 0x0A
+P2_card[i] = 0x3ECF + i * 0x0A
+```
+
+| Registro (ordem WCH) | Cartão P1 — WRAM | Cartão P2 — WRAM |
+|---:|---:|---:|
+| 1 | `0x3E07` | `0x3ECF` |
+| 2 | `0x3E11` | `0x3ED9` |
+| 3 | `0x3E1B` | `0x3EE3` |
+| 4 | `0x3E25` | `0x3EED` |
+| 5 | `0x3E2F` | `0x3EF7` |
+| 6 | `0x3E39` | `0x3F01` |
+| 7 | `0x3E43` | `0x3F0B` |
+| 8 | `0x3E4D` | `0x3F15` |
+| 9 | `0x3E57` | `0x3F1F` |
+| 10 | `0x3E61` | `0x3F29` |
+| 11 | `0x3E6B` | `0x3F33` |
+| 12 | `0x3E75` | `0x3F3D` |
+| 13 | `0x3E7F` | `0x3F47` |
+| 14 | `0x3E89` | `0x3F51` |
+| 15 | `0x3E93` | `0x3F5B` |
+| 16 | `0x3E9D` | `0x3F65` |
+| 17 | `0x3EA7` | `0x3F6F` |
+| 18 | `0x3EB1` | `0x3F79` |
+| 19 | `0x3EBB` | `0x3F83` |
+| 20 | `0x3EC5` | `0x3F8D` |
+
+Os endereços de cartão estão **um byte antes** dos registros candidatos de condição física: `P1_condition[i] = P1_card[i] + 1` e `P2_condition[i] = P2_card[i] + 1`. A validação de cartões **não implica** validação automática da semântica dos endereços de condição física. Preservar ambos no inventário.
