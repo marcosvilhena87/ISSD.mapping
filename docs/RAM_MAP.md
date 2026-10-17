@@ -453,12 +453,12 @@ Use `tools/bizhawk/issd/probes/ball_height_watch.lua` no Lua Console, sem execut
 Valide em pelo menos três situações: passe rasteiro (espera-se altura próxima de zero), lançamento alto (sobe e desce) e bola quicando (várias excursões progressivamente menores). O evento de possível quique deve ser verificado visualmente; transições no monitor não provam colisão com o gramado. Compare a defasagem temporal das duas séries para identificar se uma variável é física e outra de renderização. **Não integrar à IA** antes de confirmação em várias jogadas.
 
 
-## Condição física dos jogadores — candidatos WCH
+## Condição física dos jogadores — endereços validados (WCH)
 
-Fonte: `ISSD_players_conditions.wch` (BizHawk RAM Watch). Foram encontrados **40 registros WRAM**, distribuídos em dois grupos de 20 (P1 e P2). O arquivo descreve cada registro como `Min=0 e Max=4`; isso **não confirma** a direção da escala, a ligação com fadiga ou qualquer mudança durante a partida.
+Fonte: `ISSD_players_conditions(1).wch` (BizHawk RAM Watch), com validação dos endereços confirmada pelo usuário. Foram encontrados **40 registros WRAM**, distribuídos em dois grupos de 20 (P1 e P2). O arquivo descreve cada registro como `Min=0 e Max=4`; isso **não confirma** a direção da escala, a ligação com fadiga ou qualquer mudança durante a partida.
 
 - **Tipo WCH:** `w u` (word unsigned, 16 bits); **domínio:** WRAM.
-- **Status:** 🟡 candidato da fonte WCH; ainda não validado em execução.
+- **Status:** 🟢 endereços validados conforme confirmação do usuário; interpretação específica de cada nível ainda não detalhada.
 - **Passo entre registros:** `0x0A` (10 bytes).
 - **Base P1:** `0x3E08`; **base P2:** `0x3ED0` (diferença `0xC8`).
 - **Fórmulas, índice `i = 0..19`:** `P1[i] = 0x3E08 + i * 0x0A`; `P2[i] = 0x3ED0 + i * 0x0A`.
@@ -486,7 +486,7 @@ Fonte: `ISSD_players_conditions.wch` (BizHawk RAM Watch). Foram encontrados **40
 | 19 | `0x3EBC` | `0x3F84` |
 | 20 | `0x3EC6` | `0x3F8E` |
 
-**Limitações:** o índice representa a ordem dos registros no arquivo, não uma identificação comprovada dos jogadores. P1/P2 são rótulos da fonte, não necessariamente MY/CPU após troca de lados. Ainda é necessário correlacionar cada registro com o jogador e a indicação visual de condição, testar alterações de escalação, reinícios e estádios, e verificar se os valores permanecem estáticos ou variam com o jogo. Preservar todos os candidatos independentemente do resultado desses testes.
+**Limitações:** a confirmação de validação se aplica aos 40 endereços, sem comprovar a direção da escala de 0 a 4 ou todas as suas implicações no jogo. O índice representa a ordem dos registros no arquivo, não uma identificação comprovada dos jogadores. P1/P2 são rótulos da fonte, não necessariamente MY/CPU após troca de lados. Ainda é necessário correlacionar cada registro com o jogador e a indicação visual de condição, testar alterações de escalação, reinícios e estádios, e verificar se os valores permanecem estáticos ou variam com o jogo. Preservar todos os candidatos independentemente do resultado desses testes.
 
 
 ## Cartões dos jogadores — endereços validados (WCH)
