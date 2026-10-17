@@ -451,3 +451,39 @@ Use `tools/bizhawk/issd/probes/ball_height_watch.lua` no Lua Console, sem execut
 - O HUD mostra valores dos dois endereços, diferença, deltas e fases provisórias `GROUND / RISING / FALLING / APEX_OR_STABLE`.
 
 Valide em pelo menos três situações: passe rasteiro (espera-se altura próxima de zero), lançamento alto (sobe e desce) e bola quicando (várias excursões progressivamente menores). O evento de possível quique deve ser verificado visualmente; transições no monitor não provam colisão com o gramado. Compare a defasagem temporal das duas séries para identificar se uma variável é física e outra de renderização. **Não integrar à IA** antes de confirmação em várias jogadas.
+
+
+## Condição física dos jogadores — candidatos WCH
+
+Fonte: `ISSD_players_conditions.wch` (BizHawk RAM Watch). Foram encontrados **40 registros WRAM**, distribuídos em dois grupos de 20 (P1 e P2). O arquivo descreve cada registro como `Min=0 e Max=4`; isso **não confirma** a direção da escala, a ligação com fadiga ou qualquer mudança durante a partida.
+
+- **Tipo WCH:** `w u` (word unsigned, 16 bits); **domínio:** WRAM.
+- **Status:** 🟡 candidato da fonte WCH; ainda não validado em execução.
+- **Passo entre registros:** `0x0A` (10 bytes).
+- **Base P1:** `0x3E08`; **base P2:** `0x3ED0` (diferença `0xC8`).
+- **Fórmulas, índice `i = 0..19`:** `P1[i] = 0x3E08 + i * 0x0A`; `P2[i] = 0x3ED0 + i * 0x0A`.
+
+| Registro (ordem WCH) | P1 — WRAM | P2 — WRAM |
+|---:|---:|---:|
+| 1 | `0x3E08` | `0x3ED0` |
+| 2 | `0x3E12` | `0x3EDA` |
+| 3 | `0x3E1C` | `0x3EE4` |
+| 4 | `0x3E26` | `0x3EEE` |
+| 5 | `0x3E30` | `0x3EF8` |
+| 6 | `0x3E3A` | `0x3F02` |
+| 7 | `0x3E44` | `0x3F0C` |
+| 8 | `0x3E4E` | `0x3F16` |
+| 9 | `0x3E58` | `0x3F20` |
+| 10 | `0x3E62` | `0x3F2A` |
+| 11 | `0x3E6C` | `0x3F34` |
+| 12 | `0x3E76` | `0x3F3E` |
+| 13 | `0x3E80` | `0x3F48` |
+| 14 | `0x3E8A` | `0x3F52` |
+| 15 | `0x3E94` | `0x3F5C` |
+| 16 | `0x3E9E` | `0x3F66` |
+| 17 | `0x3EA8` | `0x3F70` |
+| 18 | `0x3EB2` | `0x3F7A` |
+| 19 | `0x3EBC` | `0x3F84` |
+| 20 | `0x3EC6` | `0x3F8E` |
+
+**Limitações:** o índice representa a ordem dos registros no arquivo, não uma identificação comprovada dos jogadores. P1/P2 são rótulos da fonte, não necessariamente MY/CPU após troca de lados. Ainda é necessário correlacionar cada registro com o jogador e a indicação visual de condição, testar alterações de escalação, reinícios e estádios, e verificar se os valores permanecem estáticos ou variam com o jogo. Preservar todos os candidatos independentemente do resultado desses testes.
