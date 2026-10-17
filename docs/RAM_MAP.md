@@ -30,6 +30,9 @@ Documento de trabalho para registrar endereços de memória descobertos no ISS D
 | CPU Side | `0x106E` | byte unsigned | 🟢 | fonte operacional validada; permaneceu em `0/1`, inverteu na troca de lados e não apresentou frames inválidos no watcher |
 | Score For | `0x0DA2` | word unsigned | 🟡 | My_Goal(s), fonte fornecida pelo usuário; aguarda validação em execução |
 | Score Against | `0x0EA2` | word unsigned | 🟡 | CPU_Goal(s), fonte fornecida pelo usuário; aguarda validação em execução |
+| My Side (flags WCH) | `0x096E` | byte unsigned | 🟡 | `ISSD_flags.wch`; candidato independente de `0x056E` (legacy) e `0x106E` (CPU Side); sem validação em execução |
+| My Shots on Goal | `0x0DAA` | word unsigned | 🟡 | `ISSD_flags.wch`; `My_Shot(s) on goal`; aguarda validação |
+| CPU Shots on Goal | `0x0EAA` | word unsigned | 🟡 | `ISSD_flags.wch`; `CPU_Shot(s) on goal`; aguarda validação |
 | Match Time | — | — | 🔴 | ainda não localizado |
 
 ## Side / orientação do campo
