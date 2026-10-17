@@ -1,11 +1,11 @@
-# Integração do ISSD_bot v1.11.17
+# Integração do ISSD_bot — atualização de 17/10/2026
 
 O projeto `ISSD_bot.v0` mantém seu controlador operacional em `tools/bizhawk/issd/main.lua`.
-O laboratório de evolução [ISSD_bot](https://github.com/marcosvilhena87/ISSD_bot) foi incluído como **submódulo Git** em `experimental/ISSD_bot`, fixado no commit `ca612e2e8980d6f871c011e559390e0e1a1723b9`.
+O laboratório de evolução [ISSD_bot](https://github.com/marcosvilhena87/ISSD_bot) foi incluído como **submódulo Git** em `experimental/ISSD_bot`, atualizado para o commit `4684f275dc327eb2f1538fc210a9c16dbbabaccb` (referência fixa e reproduzível).
 
 ## O que foi incorporado
 
-O submódulo contém o `main.lua` independente e seus módulos de leitura WRAM, perseguição, passes progressivos e de apoio, modo combinado, Dash (Y), troca de jogador, telemetria e contadores de partida, calibração de direção e receptores, monitoramento de companheiros, radar completo e geometria dependente de estádio v1.11.17, com seus testes e documentação.
+O submódulo contém o `main.lua` independente e seus módulos de leitura WRAM, perseguição, passes progressivos e de apoio, modo combinado, Dash (Y), troca de jogador, telemetria e contadores de partida, calibração de direção e receptores, monitoramento de companheiros, radar completo e geometria dependente de estádio, com seus testes e documentação. A atualização de 17/10/2026 também traz o módulo específico de distribuição do goleiro, a automação B + direcional (`gk_auto_actuator.lua`), observação de resultados (`gk_auto_result_observer.lua`), inicialização em `lua/gk_auto_start.lua` carregada por `main.lua`, calibrador de passes direcionais, telemetria tática e radar mais limpo.
 
 ## Instalação
 
