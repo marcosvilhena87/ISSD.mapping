@@ -7,7 +7,3 @@ Consulte `docs/RAM_MAP.md` para o mapa detalhado das posições da bola, jogador
 ## Versão de referência
 
 A ROM de referência é **International Superstar Soccer Deluxe (USA)** (SNES), identificada por SHA-256. Consulte [`TARGET_ROM.md`](TARGET_ROM.md) para tamanho, cabeçalho, CRC32, MD5, SHA-256 e critérios de validação por versão.
-
-## Challenge Mode
-
-Consulte [`docs/CHALLENGE_MODE.md`](docs/CHALLENGE_MODE.md) para o inventário de variáveis-alvo, os endereços existentes que devem ser revalidados nesse modo e o protocolo de descoberta da WRAM. Nenhum endereço específico do Challenge Mode foi confirmado até o momento.
