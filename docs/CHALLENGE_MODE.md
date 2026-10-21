@@ -17,7 +17,7 @@ Este documento incorpora **hipóteses instrumentadas** no repositório [ISSD.cha
 2. **Comportamento reproduzido:** capturas de diferentes sessões e controles positivos/negativos demonstram a correlação, mas não a função estrutural do campo.
 3. **Layout estabelecido:** semântica e estrutura verificadas, incluindo controles negativos, compatibilidade com ROM/build, reinicializações e exclusão de falsos positivos.
 
-Os cinco registros abaixo **permanecem na primeira categoria**. O estado `candidate` emitido pelo software nunca equivale a uma confirmação.
+Os cinco registros originais abaixo **permanecem na primeira categoria**. O candidato adicional `0x01542` possui correlação reproduzida em duas sequências, mas aguarda controles negativos e verificação de ROM/build para satisfazer integralmente a categoria 2. O estado `candidate` emitido pelo software nunca equivale a uma confirmação.
 
 ## Inventário de endereços
 
@@ -28,6 +28,7 @@ Os cinco registros abaixo **permanecem na primeira categoria**. O estado `candid
 | `selected_level` | `0x1550` | u8 | Nível destacado; 0..3 representa LV1..LV4 | Instrumentado no v0.4/v0.5 | Hipótese |
 | `legacy_level_a` | `0xD70A` | u8 | Antiga sonda de nível; apenas telemetria | Endereço legado preservado | Hipótese histórica; **não usar para determinar nível** |
 | `legacy_level_b` | `0xE52E` | u8 | Antiga sonda de nível; apenas telemetria | Endereço legado preservado | Hipótese histórica; **não usar para determinar nível** |
+| `challenge_start_cursor` | `0x01542` | u8 | Cursor do submenu Challenge Start: 0 Start, 1 Key Configuration, 2 Change Controller | Discovery v1 e Validation v2, duas sequências observadas | **Comportamento correlacionado reproduzido (preliminar)**; sem exclusividade/flag de menu validada |
 
 Codificação **postulada** para o identificador de modalidade:
 
@@ -74,6 +75,13 @@ Este módulo descreve exclusivamente **o menu/seleção de Challenge Mode** e n�
 O operador forneceu saídas do console do BizHawk v0.2 abrangendo **24/24 combinações candidatas** (modalidades 0..5, níveis 0..3), com concordância de `0xD708` e `0xE52C` nas linhas fornecidas. Também foram observados `0x1550=4` em DEFENSE e CORNER KICK, e `0x1550=5` em CORNER KICK; o decodificador retornou `unknown`.
 
 **Limitações:** saída textual sem frames, etiquetas visuais independentes, hash da ROM da sessão, controles negativos ou sessões independentes. Cobertura dos candidatos **não equivale a validação**; todos os endereços mantêm a classificação de hipótese instrumental. Valores 4/5 não são considerados níveis. Próxima coleta: monitor CSV v0.3 em `ISSD.challenge_mode`.
+
+## Evidência observacional de 0x01542 — 2026-10-21
+
+- Discovery v1, sessão `20261021T213107Z`: capturas visuais A/B/C/A nos frames 434589, 435111, 435667, 436369. O endereço 0x01542 foi o primeiro candidato por progressão ascendente. A correspondência individual C=2 e retorno=0 deve ser confirmada pela consulta integral do CSV, pois o PowerShell apresentado exibiu somente A e B.
+- Validation v2, sessão `20261021T214439Z`: eventos do operador A=0 (474088), C=2 (474726), B=1 (475383), A=0 (476063). As linhas `transition` marcadas `match=no` refletem rótulo anterior persistente durante navegação; não são quatro falhas dos eventos manuais.
+- Correlacao reproduzida em duas sequências de navegação independentes; **não** significa que o endereço seja exclusivo da tela ou que sua semântica interna/layout estejam definitivamente estabelecidos.
+- Pendências: controles negativos nas demais telas, hash da ROM das sessões, repetição após reinício. Nenhuma flag autônoma de presença de submenu foi validada. Manter uso condicionado ao rótulo visual `challenge_start_menu` e confiança `candidate`.
 
 ## Histórico
 
