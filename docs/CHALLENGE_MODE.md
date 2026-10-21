@@ -68,6 +68,13 @@ Este módulo descreve exclusivamente **o menu/seleção de Challenge Mode** e n�
 7. Registrar os arquivos de evidência **sem distribuir ROM, savestates sensíveis ou dumps brutos no Git**, e documentar hashes e resultados auditáveis.
 8. Promover um endereço somente após reproduzir seu comportamento; reservar o status de layout estabelecido para semântica estruturalmente demonstrada.
 
+
+## Evidência preliminar de navegação — 2026-10-21
+
+O operador forneceu saídas do console do BizHawk v0.2 abrangendo **24/24 combinações candidatas** (modalidades 0..5, níveis 0..3), com concordância de `0xD708` e `0xE52C` nas linhas fornecidas. Também foram observados `0x1550=4` em DEFENSE e CORNER KICK, e `0x1550=5` em CORNER KICK; o decodificador retornou `unknown`.
+
+**Limitações:** saída textual sem frames, etiquetas visuais independentes, hash da ROM da sessão, controles negativos ou sessões independentes. Cobertura dos candidatos **não equivale a validação**; todos os endereços mantêm a classificação de hipótese instrumental. Valores 4/5 não são considerados níveis. Próxima coleta: monitor CSV v0.3 em `ISSD.challenge_mode`.
+
 ## Histórico
 
 - **2026-10-21 — Inventário inicial integrado:** cinco sondas trazidas do `ISSD.challenge_mode`; nenhuma promovida a endereço validado. Preservado o mapeamento anterior dos demais modos.
